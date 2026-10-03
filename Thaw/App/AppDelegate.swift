@@ -152,6 +152,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if NativeVisibilityRecoveryLaunch.isHandingOff {
+            // Do not release reveal holds or run layout reconciliation during recovery handoff.
+            appState.menuBarManager.tearDownControlItemsForTermination()
+            return .terminateNow
+        }
         guard !isPreparingForTermination else {
             return .terminateLater
         }
@@ -196,7 +201,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_: Notification) {
         appState.diagLog.info("Application will terminate")
-        appState.menuBarManager.nativeAppHidingExperiment.prepareForTermination()
+        if NativeVisibilityRecoveryLaunch.isHandingOff {
+            // Capture changes since launch began. Leave the original journal intact
+            // for recovery instead of clearing it through the normal cached reader.
+            do {
+                try NativeAppVisibilityRecovery().preserveRecoveryRecords()
+            } catch {
+                appState.diagLog.error("Could not checkpoint visibility recovery; original journal retained: \(error.localizedDescription)")
+            }
+        } else {
+            appState.menuBarManager.nativeAppHidingExperiment.prepareForTermination()
+        }
         appState.menuBarManager.systemExtraTakeover.prepareForTermination()
         // Balance the layout-table security scope before exit.
         MenuBarLayoutTableAccess.shared.release()

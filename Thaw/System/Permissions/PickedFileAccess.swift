@@ -28,6 +28,13 @@ final class PickedFileAccess {
         message: String(localized: "Select “group.com.apple.controlcenter.plist” to let \(Constants.displayName) hide apps the way System Settings does. \(Constants.displayName) is granted access to this one file only.")
     )
 
+    static let controlCenterVisibilityRecovery = PickedFileAccess(
+        fileURL: URL(fileURLWithPath: CFPreferencesTrackedApplications.defaultDomain + ".plist"),
+        bookmarkKey: "NativeVisibilityRecoveryFileBookmark",
+        title: String(localized: "Grant Access to Restore Menu Bar Items"),
+        message: String(localized: "Select “group.com.apple.controlcenter.plist” to restore app visibility. Recovery will not change saved item positions.")
+    )
+
     private let fileURL: URL
     private let bookmarkKey: String
     private let title: String
@@ -47,6 +54,18 @@ final class PickedFileAccess {
         activateIfNeeded()
         return FileManager.default.isReadableFile(atPath: fileURL.path)
             && NSDictionary(contentsOf: fileURL) != nil
+    }
+
+    /// Recovery requires its own read/write grant, not an older read-only one.
+    var hasReadWriteAccess: Bool {
+        guard hasAccess, UserDefaults.standard.data(forKey: bookmarkKey) != nil else { return false }
+        do {
+            let handle = try FileHandle(forWritingTo: fileURL)
+            try handle.close()
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Resolves the stored bookmark and takes its scope, once.
@@ -90,6 +109,7 @@ final class PickedFileAccess {
             return false
         }
         store(picked)
+        scopedURL?.stopAccessingSecurityScopedResource()
         scopedURL = nil
         activateIfNeeded()
         diagLog.info("Access granted to \(fileURL.lastPathComponent)")

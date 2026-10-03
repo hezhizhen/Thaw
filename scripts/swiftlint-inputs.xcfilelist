@@ -97,6 +97,7 @@ $(SRCROOT)/Thaw/App/Intents/ActivateMenuBarItemIntent.swift
 $(SRCROOT)/Thaw/App/Intents/ApplyProfileIntent.swift
 $(SRCROOT)/Thaw/App/Intents/HiddenItemsSnippetIntents.swift
 $(SRCROOT)/Thaw/App/Intents/ThawActionIntents.swift
+$(SRCROOT)/Thaw/App/NativeVisibilityRecoveryApp.swift
 $(SRCROOT)/Thaw/App/Navigation/AppNavigationState.swift
 $(SRCROOT)/Thaw/App/Navigation/NavigationIdentifiers/NavigationIdentifier.swift
 $(SRCROOT)/Thaw/App/Navigation/NavigationIdentifiers/SettingsNavigationIdentifier.swift
@@ -326,6 +327,7 @@ $(SRCROOT)/Thaw/Settings/Models/Displays/DisplaySettingsManager.swift
 $(SRCROOT)/Thaw/Settings/Models/Displays/DisplayThawBarConfiguration.swift
 $(SRCROOT)/Thaw/Settings/Models/LaunchAtLoginSetting.swift
 $(SRCROOT)/Thaw/Settings/Models/MenuBarArrangementMode.swift
+$(SRCROOT)/Thaw/Settings/Models/NativeVisibilityRecoveryModel.swift
 $(SRCROOT)/Thaw/Settings/Models/Preferences/AdvancedSettings.swift
 $(SRCROOT)/Thaw/Settings/Models/Preferences/AppSettings.swift
 $(SRCROOT)/Thaw/Settings/Models/Preferences/GeneralSettings.swift
@@ -401,6 +403,7 @@ $(SRCROOT)/Thaw/Settings/SettingsPanes/SimpleModeSettingsPane.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/SpacesSettingsPane.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/TheLabSettingsPane.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/Tools/MenuBarLayoutBackupsSection.swift
+$(SRCROOT)/Thaw/Settings/SettingsPanes/Tools/NativeVisibilityRecoveryView.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/ToolsSettingsPane.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/TriggersSettingsPane.swift
 $(SRCROOT)/Thaw/Settings/SettingsPanes/WhatsNewView.swift
@@ -422,6 +425,7 @@ $(SRCROOT)/Thaw/System/Migration.swift
 $(SRCROOT)/Thaw/System/NativeAppHidingOffer.swift
 $(SRCROOT)/Thaw/System/Permissions/AppPermissions.swift
 $(SRCROOT)/Thaw/System/Permissions/FullDiskAccessPermission.swift
+$(SRCROOT)/Thaw/System/Permissions/NativeVisibilityRecoveryLaunch.swift
 $(SRCROOT)/Thaw/System/Permissions/Permission.swift
 $(SRCROOT)/Thaw/System/Permissions/PermissionViews.swift
 $(SRCROOT)/Thaw/System/Permissions/PermissionsWindow.swift
