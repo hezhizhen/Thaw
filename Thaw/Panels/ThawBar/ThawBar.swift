@@ -159,7 +159,7 @@ final class ThawBarPanel: NSPanel {
             }
             .store(in: &cancellables)
 
-        colorManager.performSetup(with: self)
+        colorManager.performSetup(with: self, appState: appState)
     }
 
     /// Nil when the panel is wider than the screen and no placement fits.
@@ -865,6 +865,7 @@ private struct ThawBarContentView: View {
                 menuBarManager: menuBarManager,
                 screen: screen,
                 appearance: thawBarAppearance,
+                overridesMenuBar: configuration.thawBarAppearance.overridesMenuBar,
                 shape: clipShape
             ) {
                 Group {
@@ -1117,14 +1118,21 @@ private struct ThawBarChrome<Content: View>: View {
     let menuBarManager: MenuBarManager
     let screen: NSScreen
     let appearance: ResolvedThawBarAppearance
+    let overridesMenuBar: Bool
     let shape: ThawBarBorderShape
     @ViewBuilder let content: Content
 
     var body: some View {
+        let sample = ThawBarColorManager.backgroundSample(
+            for: screen.displayID,
+            overridesMenuBar: overridesMenuBar,
+            sharedSamples: menuBarManager.averageColors,
+            localSample: colorManager.colorDisplayID == screen.displayID ? colorManager.colorInfo : nil
+        )
         content
             .foregroundStyle(ThawBarAppearanceForeground.resolve(
                 appearance: appearance,
-                sampledInfo: colorManager.colorInfo,
+                sampledInfo: sample,
                 adaptiveInfo: menuBarManager.averageColors[screen.displayID],
                 palette: menuBarManager.wallpaperPalettes[screen.displayID],
                 screen: screen
@@ -1132,7 +1140,7 @@ private struct ThawBarChrome<Content: View>: View {
             .background {
                 ThawBarAppearanceBackground(
                     appearance: appearance,
-                    sampledColor: colorManager.colorInfo?.color,
+                    sampledColor: sample?.color,
                     adaptiveColor: menuBarManager.averageColors[screen.displayID]?.color,
                     palette: menuBarManager.wallpaperPalettes[screen.displayID],
                     shape: shape

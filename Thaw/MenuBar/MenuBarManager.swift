@@ -773,7 +773,7 @@ final class MenuBarManager {
     }
 
     /// Awaitable refresh; color writes finish on MainActor before returning.
-    func updateAverageColorInfoAsync() async {
+    func updateAverageColorInfoAsync(for requestedDisplayID: CGDirectDisplayID? = nil) async {
         guard let appState, appState.navigationState.hasVisibleCaptureUI else { return }
 
         let isSettingsVisible = settingsWindow?.isVisible == true
@@ -781,7 +781,10 @@ final class MenuBarManager {
         let isAdaptiveActive = requirements?.isAdaptive ?? false
 
         let targetScreens: [NSScreen]
-        if isAdaptiveActive {
+        if let requestedDisplayID {
+            guard let screen = NSScreen.screen(for: requestedDisplayID) else { return }
+            targetScreens = [screen]
+        } else if isAdaptiveActive {
             targetScreens = NSScreen.managedScreens
         } else if isSettingsVisible {
             targetScreens = [settingsWindow?.screen].compactMap(\.self)

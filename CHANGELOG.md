@@ -24,6 +24,7 @@ and the Sparkle appcast, unless overridden with the `release_notes` input.
 - Appearance detects an automatically hiding menu bar on macOS 27.
 - Split appearance pills cover mirrored status items on secondary displays and follow their live leading edge after startup.
 - Clicking Thaw’s icon after it moves no longer dismisses the Thaw Bar as an outside click before reopening it.
+- With “Thaw Bar own look” off, the bar uses the shared background sample for its display instead of a narrow wallpaper slice that could turn the bar gray and its icons black.
 - Showing Live Activities and the camera indicator prevents conflicting assertion-based hiding of Clock, Control Center, and Siri.
 - Release notes and Credits use the same body and heading text styles as Settings instead of a separate oversized type scale.
 
