@@ -735,6 +735,10 @@ final class MenuBarItemManager {
     /// after a reveal ordering pass runs with the authored order.
     var authoredVisibleOrderPendingPhysicalApply = false
 
+    /// The Visible items that were live when the order was last mirrored, so
+    /// the next mirror can tell an arrival from a ⌘-drag.
+    var lastMirroredLiveVisibleIdentifiers: Set<String>?
+
     /// How many ordering passes an authored pane edit gets before Thaw reports
     /// that the pane and the bar disagree. More than one because a pass can be
     /// interrupted, a reveal, an assertion reflow, and fewer than the move
@@ -1015,6 +1019,41 @@ final class MenuBarItemManager {
                         + "releasing it so the pane reflects the bar"
                 )
             }
+        }
+    }
+
+    /// Writes the recorded Visible order back after an arrival disturbed it.
+    /// Position writes only and a single attempt; if the bar does not follow, the next mirror records the bar.
+    func scheduleArrivalOrderRestore() {
+        guard !arrangementIsManual,
+              let controller = appState?.menuBarManager.sectionController
+        else { return }
+        let identifiers = savedSectionOrder[sectionKey(for: .visible)] ?? []
+        guard identifiers.count > 1 else { return }
+        authoredVisibleOrderPendingPhysicalApply = true
+        authoredVisibleOrderApplyTask?.cancel()
+        authoredVisibleOrderApplyTask = Task { @MainActor [weak self] in
+            // Let the arrival finish laying out before writing around it.
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            defer {
+                // A cancelled predecessor must not clear its replacement.
+                if !Task.isCancelled {
+                    authoredVisibleOrderApplyTask = nil
+                    authoredVisibleOrderPendingPhysicalApply = false
+                }
+            }
+            MenuBarItemManager.diagLog.info(
+                "macOS 27: restoring recorded visible order after an arrival (\(identifiers.count) item(s))"
+            )
+            await applySectionItemOrder(
+                sections: [.visible],
+                controller: controller,
+                visibleOrderOverride: identifiers,
+                reason: .arrivalRestore
+            )
+            guard !Task.isCancelled else { return }
+            await cacheItemsRegardless(skipRecentMoveCheck: true)
         }
     }
 

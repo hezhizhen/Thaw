@@ -2279,8 +2279,8 @@ extension MenuBarItemManager {
             }
 
             // After a restriction reflow drags fail and strand collateral; the
-            // write above is enough.
-            if repairAfterRestriction {
+            // write above is enough. A write-only reason never drags at all.
+            if repairAfterRestriction || reason.isPositionWriteOnly {
                 continue
             }
 
