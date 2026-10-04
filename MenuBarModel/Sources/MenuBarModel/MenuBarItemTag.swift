@@ -784,11 +784,6 @@ public extension MenuBarItemTag {
         MenuBarItemTag(namespace: systemHostNamespace, title: "FaceTime")
     }
 
-    /// The tag for the system "Music Recognition" item.
-    static var musicRecognition: MenuBarItemTag {
-        MenuBarItemTag(namespace: systemHostNamespace, title: "MusicRecognition")
-    }
-
     /// The tag for the system item that appears in the menu bar
     /// during recordings started by the macOS "Screenshot" tool.
     static let screenCaptureUI = MenuBarItemTag(namespace: .screenCaptureUI, title: "Item-0")

@@ -246,13 +246,6 @@ struct ProfileSettingsPane: View {
 
     // MARK: - Actions
 
-    /// Binding setters cannot throw, so collect their manifest failures from the manager.
-    private func reportManifestFailure() {
-        if let message = profileManager.takeManifestError() {
-            errorMessage = message
-        }
-    }
-
     private func createProfile() {
         let name = newProfileName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }

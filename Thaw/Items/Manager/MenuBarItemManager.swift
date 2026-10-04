@@ -1132,20 +1132,6 @@ final class MenuBarItemManager {
         return result
     }
 
-    /// Extracts the current per-section item order from the given cache
-    /// and persists it to savedSectionOrder. Skips the write when the
-    /// order has not changed. Delegates the dict construction to
-    /// computeSectionOrder so the "what does the curated section order
-    /// look like?" question has a single answer used by both periodic
-    /// save and profile capture.
-    private func saveSectionOrder(from cache: ItemCache) {
-        let newOrder = computeSectionOrder(from: cache)
-        guard newOrder != savedSectionOrder else { return }
-        savedSectionOrder = newOrder
-        persistSavedSectionOrder()
-        MenuBarItemManager.diagLog.debug("Saved section order: \(newOrder.mapValues(\.count))")
-    }
-
     /// Returns a persistable string key for the given section name (its raw
     /// value).
     func sectionKey(for section: MenuBarSection.Name) -> String {

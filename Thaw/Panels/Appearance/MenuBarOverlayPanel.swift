@@ -161,12 +161,6 @@ final class MenuBarOverlayPanel: NSPanel {
         appState != nil && (alphaValue > 0 || missionControlProbe.isActive)
     }
 
-    /// Pure classification of the Exposé shield window, split out so it can be
-    /// unit-tested without a live window server.
-    static func isMissionControlShieldWindow(ownerName: String?, title: String?) -> Bool {
-        MissionControlShieldProbe.isShieldWindow(ownerName: ownerName, title: title)
-    }
-
     /// Transparent, nonactivating panel excluded from window menus and cycling; order it only when needsShow requests.
     init(appState: AppState, owningScreen: NSScreen) {
         self.appState = appState

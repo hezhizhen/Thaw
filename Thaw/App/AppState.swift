@@ -283,12 +283,6 @@ final class AppState {
         }
     }
 
-    /// Matches Settings consent write order (flag, Sparkle switches, updater start); non-Sparkle builds ignore updates.
-    /// Writes tour completion and version last so partial writes replay onboarding.
-    func completeOnboarding(outcome: OnboardingOutcome) {
-        completeOnboarding(outcome: outcome, opening: nil)
-    }
-
     /// Select the destination pane before opening Settings so construction reads it without losing the sidebar's first render.
     func completeOnboarding(outcome: OnboardingOutcome, opening pane: SettingsNavigationIdentifier?) {
         settings.general.simpleMode = outcome.simpleMode

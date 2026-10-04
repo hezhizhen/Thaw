@@ -783,14 +783,6 @@ final class DisplaySettingsManager {
         configuration(for: displayID).thawBarLocation
     }
 
-    func thawBarLayout(for displayID: CGDirectDisplayID) -> ThawBarLayout {
-        configuration(for: displayID).thawBarLayout
-    }
-
-    func gridColumns(for displayID: CGDirectDisplayID) -> Int {
-        configuration(for: displayID).gridColumns
-    }
-
     /// Whether hidden items should always be shown for the given display.
     func alwaysShowHiddenItems(for displayID: CGDirectDisplayID) -> Bool {
         configuration(for: displayID).alwaysShowHiddenItems

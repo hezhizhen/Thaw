@@ -1561,12 +1561,6 @@ struct MenuBarAverageColorInfo: Hashable {
         ForegroundContrast.relativeLuminance(of: color) ?? 0
     }
 
-    /// Switch at the contrast crossover to select the stronger foreground; see ForegroundContrast.
-    /// Thaw may use dark content on mid-gray bars while system items remain light.
-    var isBright: Bool {
-        relativeLuminance > Constants.menuBarBrightnessThreshold
-    }
-
     /// A separate notch threshold allows darker foreground beside the notch, where content reads lighter.
     /// Both thresholds use the contrast crossover to avoid weakening either polarity.
     /// - Parameter screen: Screen to judge for; nil uses the screen currently owning the menu bar.

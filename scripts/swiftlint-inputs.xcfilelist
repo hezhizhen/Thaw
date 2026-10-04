@@ -118,7 +118,6 @@ $(SRCROOT)/Thaw/Input/Events/MenuBarPointerAXCache.swift
 $(SRCROOT)/Thaw/Input/Events/NotificationCenterActivation.swift
 $(SRCROOT)/Thaw/Input/Events/NotificationCenterEventReplay.swift
 $(SRCROOT)/Thaw/Input/Events/NotificationCenterInputState.swift
-$(SRCROOT)/Thaw/Input/Events/RunLoopLocalEventMonitor.swift
 $(SRCROOT)/Thaw/Input/Hotkeys/Hotkey.swift
 $(SRCROOT)/Thaw/Input/Hotkeys/HotkeyAction.swift
 $(SRCROOT)/Thaw/Input/Hotkeys/HotkeyRegistry.swift
@@ -341,7 +340,6 @@ $(SRCROOT)/Thaw/Settings/Models/SectionDividerStyle.swift
 $(SRCROOT)/Thaw/Settings/Models/SettingsResetter.swift
 $(SRCROOT)/Thaw/Settings/Models/Widgets/BatteryLevelSource.swift
 $(SRCROOT)/Thaw/Settings/Models/Widgets/CPUSource.swift
-$(SRCROOT)/Thaw/Settings/Models/Widgets/PowerSourceWatcher.swift
 $(SRCROOT)/Thaw/Settings/Models/Widgets/StatusIconComposition.swift
 $(SRCROOT)/Thaw/Settings/Models/Widgets/StatusIconLiveSampler.swift
 $(SRCROOT)/Thaw/Settings/Models/Widgets/StatusIconNetwork.swift
@@ -440,7 +438,6 @@ $(SRCROOT)/Thaw/UI/Modifiers/OnFrameChange.swift
 $(SRCROOT)/Thaw/UI/Modifiers/OnKeyDown.swift
 $(SRCROOT)/Thaw/UI/Modifiers/OnWindowChange.swift
 $(SRCROOT)/Thaw/UI/Modifiers/Once.swift
-$(SRCROOT)/Thaw/UI/Shapes/AnyInsettableShape.swift
 $(SRCROOT)/Thaw/UI/ThawUI/AppUIZoom.swift
 $(SRCROOT)/Thaw/UI/ThawUI/ThawForm.swift
 $(SRCROOT)/Thaw/UI/ThawUI/ThawGradientPicker.swift
@@ -478,9 +475,7 @@ $(SRCROOT)/Thaw/Utilities/NSPanel+Waiting.swift
 $(SRCROOT)/Thaw/Utilities/NSScreen+MenuBar.swift
 $(SRCROOT)/Thaw/Utilities/NSStatusItem+Menu.swift
 $(SRCROOT)/Thaw/Utilities/NSWindow+MenuBarOverlay.swift
-$(SRCROOT)/Thaw/Utilities/ObjectStorage.swift
 $(SRCROOT)/Thaw/Utilities/Predicates.swift
-$(SRCROOT)/Thaw/Utilities/Publisher+Defaults.swift
 $(SRCROOT)/Thaw/Utilities/Publisher+Transforms.swift
 $(SRCROOT)/Thaw/Utilities/ScreenLock.swift
 $(SRCROOT)/Thaw/Utilities/SpaceInfo.swift

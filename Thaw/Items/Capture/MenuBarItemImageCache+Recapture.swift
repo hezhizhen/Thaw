@@ -998,58 +998,6 @@ extension MenuBarItemImageCache {
         }
     }
 
-    /// Refreshes the glyphs of the items the Menu Bar Overlay draws.
-    ///
-    /// The overlay's items are concealed from the native bar, so the periodic
-    /// capture passes cannot see them, battery, Wi-Fi and playback glyphs
-    /// would freeze at their engage-time appearance. This runs the Thaw Bar's
-    /// grouped reveal on the overlay's behalf: reveal a few items, wait for
-    /// MenuBarAgent to publish their live AX elements, settle one render,
-    /// screenshot them, and conceal them again. The reveal happens at each
-    /// item's real position, directly underneath the overlay's own panel and
-    /// its matching glyph, so in steady state the pass is not visible.
-    ///
-    /// Merge semantics mirror the concealed-section prewarm: a failed or
-    /// blank capture never wipes a settled glyph, and an unchanged capture is
-    /// not republished.
-    func refreshOverlayItemGlyphs(_ items: [MenuBarItem]) async {
-        guard !skipCaptureWhileScreenLocked("refreshOverlayItemGlyphs"), let appState else { return }
-        let controller = appState.menuBarManager.sectionController
-        guard controller.isOperational else { return }
-
-        let displayID = appState.itemManager.itemDisplayID
-            ?? windowServer.activeMenuBarDisplayID()
-            ?? CGMainDisplayID()
-        // Native notch overflow remains in force when Thaw removes an item
-        // from its own concealment assertion: a reveal in that state can only
-        // surface the system overflow chevron, never the item's real glyph.
-        guard !controller.isNativeOverflowActive(on: displayID) else { return }
-
-        let scale = NSScreen.screen(for: displayID)?.backingScaleFactor
-            ?? NSScreen.main?.backingScaleFactor
-            ?? 2
-
-        await MainActor.run {
-            loadFromDiskIfNeeded()
-        }
-
-        // Grouped precise reveal, shared with the concealed-section prewarm: a
-        // handful of glyphs appear together, are screenshotted in one pass,
-        // and are concealed again. A miss keeps whatever is cached: the strip
-        // is on screen and swapping a glyph for a fallback icon mid-pass would
-        // be a visible regression.
-        // No reveal mask here: the overlay panel already covers the reveal at
-        // the same window level, and a mask would paint the bare bar over it.
-        await captureConcealedItemsByGroupedReveal(
-            items,
-            controller: controller,
-            displayID: displayID,
-            scale: scale,
-            missPolicy: .keepExisting
-        )
-        saveToDisk()
-    }
-
     /// Whether the screen is locked, in which case pass skips its capture.
     ///
     /// Skipping before any item is attempted keeps the lock screen's bad crops

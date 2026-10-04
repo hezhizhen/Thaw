@@ -270,10 +270,6 @@ final class MenuBarItemImageCache: @unchecked Sendable {
     /// cache owns the policy, this owns the file.
     let diskStore = MenuBarItemImageCacheDiskStore()
 
-    /// Shared with the capture inspector through ThawCapture so the two
-    /// cannot drift.
-    private let captureOption: CGWindowImageOption = ScreenCapture.menuBarItemCaptureOption
-
     /// Weak so the cache never keeps the app alive; every method that needs it
     /// bails out quietly when it has gone.
     weak var appState: AppState?
@@ -385,19 +381,6 @@ final class MenuBarItemImageCache: @unchecked Sendable {
         mainDisplayID: CGDirectDisplayID
     ) -> CGDirectDisplayID {
         itemCacheDisplayID ?? activeMenuBarDisplayID ?? mainDisplayID
-    }
-
-    /// captureDisplayID(itemCacheDisplayID:activeMenuBarDisplayID:mainDisplayID:)
-    /// with the active menu bar display read from windowServer.
-    nonisolated func captureDisplayID(
-        itemCacheDisplayID: CGDirectDisplayID?,
-        mainDisplayID: CGDirectDisplayID
-    ) -> CGDirectDisplayID {
-        Self.captureDisplayID(
-            itemCacheDisplayID: itemCacheDisplayID,
-            activeMenuBarDisplayID: windowServer.activeMenuBarDisplayID(),
-            mainDisplayID: mainDisplayID
-        )
     }
 
     static nonisolated func shouldUseFreshBounds(

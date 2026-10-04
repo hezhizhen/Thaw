@@ -68,11 +68,6 @@ nonisolated enum Defaults {
         return store.integer(forKey: key.rawValue)
     }
 
-    static func float(forKey key: Key) -> Float {
-        _ = registered
-        return store.float(forKey: key.rawValue)
-    }
-
     static func double(forKey key: Key) -> Double {
         _ = registered
         return store.double(forKey: key.rawValue)
