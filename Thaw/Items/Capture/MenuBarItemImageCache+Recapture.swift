@@ -43,11 +43,42 @@ extension MenuBarItemImageCache {
     /// Returns whether the pass changed anything a consumer could see, which the
     /// live refresh loop uses to back its tick rate off while the bar is static.
     /// Guard exits report false so a skipped capture never drives the ladder.
+    /// One pass runs at a time; a request arriving mid-pass shares it or waits for one follow-up. See RecaptureDemand.
     @MainActor
     @discardableResult
     func recaptureNow(
         sections: [MenuBarSection.Name],
         ignoreRecentMove: Bool = false
+    ) async -> Bool {
+        await recaptureCoalescer.run(
+            RecaptureDemand(sections: sections, ignoreRecentMove: ignoreRecentMove),
+            capturable: { [weak self] in self?.currentlyCapturableSections(from: $0) ?? $0 },
+            pass: { [weak self] demand in
+                await self?.runRecapturePass(
+                    sections: demand.sections,
+                    ignoreRecentMove: demand.ignoreRecentMove
+                ) ?? false
+            }
+        )
+    }
+
+    /// The requested sections with live pixels right now; all of them before activation.
+    @MainActor
+    private func currentlyCapturableSections(
+        from sections: [MenuBarSection.Name]
+    ) -> [MenuBarSection.Name] {
+        guard let appState else { return sections }
+        return MenuBarBackendProvider.current.capturableSections(
+            from: sections,
+            revealedSection: appState.menuBarManager.sectionController.revealedSection
+        )
+    }
+
+    /// One uncoalesced pass; reach it through recaptureNow(sections:ignoreRecentMove:).
+    @MainActor
+    private func runRecapturePass(
+        sections: [MenuBarSection.Name],
+        ignoreRecentMove: Bool
     ) async -> Bool {
         // False backs the live loop off toward its 1 Hz floor while locked; the
         // first tick after the unlock captures again.
@@ -88,10 +119,7 @@ extension MenuBarItemImageCache {
         // them only while RuntimeSectionController has actually revealed their live AX
         // elements. Incomplete / off-window crops clear the prior entry so the
         // app-icon fallback can take over until a complete capture succeeds.
-        let sectionsToCapture = MenuBarBackendProvider.current.capturableSections(
-            from: sections,
-            revealedSection: appState.menuBarManager.sectionController.revealedSection
-        )
+        let sectionsToCapture = currentlyCapturableSections(from: sections)
 
         // Debug, not notice: the live refresh loop lands here at up to 30 Hz
         // (≥1 Hz even backed off) for as long as any capture consumer is open,

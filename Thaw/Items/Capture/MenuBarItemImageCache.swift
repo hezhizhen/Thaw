@@ -172,6 +172,9 @@ final class MenuBarItemImageCache: @unchecked Sendable {
     @ObservationIgnored var isConcealedPrewarmRunning = false
     @ObservationIgnored var concealedPrewarmWaiters = [CheckedContinuation<Void, Never>]()
 
+    /// Shares one recapture pass among overlapping requests. Main actor only.
+    @ObservationIgnored let recaptureCoalescer = RecaptureCoalescer()
+
     /// How many passes a live reflow may suppress before one runs regardless.
     static nonisolated let maximumReflowSkips = 8
 
