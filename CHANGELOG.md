@@ -14,6 +14,7 @@ and the Sparkle appcast, unless overridden with the `release_notes` input.
 ### Added
 
 - Triggers can show selected menu bar items while an app runs, including in the background. When it quits, the items follow their saved layout again.
+- Launchers can list and open menu bar items and list and apply profiles through `thaw://` URLs, and get the outcome back. Floe works without setup.
 - Troubleshooting includes “Restore missing menu bar items.” Recovery runs without normal hiding, restores recorded visibility changes or apps you select, and keeps failed recovery records for retry without resetting your saved layout.
 
 ### Fixed

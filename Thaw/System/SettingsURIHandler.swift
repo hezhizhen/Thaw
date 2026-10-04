@@ -145,6 +145,17 @@ enum SettingsURIHandler {
         return senderTeamID == ownTeamID
     }
 
+    /// Whether the installed app with this bundle ID is a built-in trusted sender.
+    /// Such a sender also works while the Settings URI feature is switched off.
+    static func isBuiltInTrustedSender(bundleIdentifier: String?) -> Bool {
+        guard let bundleIdentifier, builtInTrustedBundleIDs.contains(bundleIdentifier) else { return false }
+        return isBuiltInTrusted(
+            bundleId: bundleIdentifier,
+            senderTeamID: getTeamIdentifier(for: bundleIdentifier),
+            ownTeamID: teamIdentifier(ofAppAt: Bundle.main.bundleURL, logName: "this app")
+        )
+    }
+
     /// Gets the team identifier for a bundle ID by checking the app's code signature.
     private static func getTeamIdentifier(for bundleId: String) -> String? {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
@@ -216,13 +227,7 @@ enum SettingsURIHandler {
             return false
         }
 
-        if builtInTrustedBundleIDs.contains(bundleId),
-           isBuiltInTrusted(
-               bundleId: bundleId,
-               senderTeamID: getTeamIdentifier(for: bundleId),
-               ownTeamID: teamIdentifier(ofAppAt: Bundle.main.bundleURL, logName: "this app")
-           )
-        {
+        if isBuiltInTrustedSender(bundleIdentifier: bundleId) {
             diagLog.debug("Settings URI: Authorized built-in request from \(bundleId)")
             return true
         }

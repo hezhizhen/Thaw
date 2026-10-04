@@ -161,6 +161,7 @@ $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+Clicking.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+ConcealedClick.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+ControlItemOrder.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+EventHelpers.swift
+$(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+ExternalActivation.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+LayoutMoveSequence.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+LayoutReset.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+ManualMembership.swift
@@ -334,6 +335,7 @@ $(SRCROOT)/Thaw/Settings/Models/Preferences/HotkeysSettings.swift
 $(SRCROOT)/Thaw/Settings/Models/Profiles/FocusFilterIntent.swift
 $(SRCROOT)/Thaw/Settings/Models/Profiles/Profile.swift
 $(SRCROOT)/Thaw/Settings/Models/Profiles/ProfileLayoutDiff.swift
+$(SRCROOT)/Thaw/Settings/Models/Profiles/ProfileManager+ApplyByID.swift
 $(SRCROOT)/Thaw/Settings/Models/Profiles/ProfileManager.swift
 $(SRCROOT)/Thaw/Settings/Models/RehideStrategy.swift
 $(SRCROOT)/Thaw/Settings/Models/SectionDividerStyle.swift
@@ -417,6 +419,7 @@ $(SRCROOT)/Thaw/System/Defaults.swift
 $(SRCROOT)/Thaw/System/FirstRunHints.swift
 $(SRCROOT)/Thaw/System/HookRunner.swift
 $(SRCROOT)/Thaw/System/ItemEnumerationDump.swift
+$(SRCROOT)/Thaw/System/LauncherURI.swift
 $(SRCROOT)/Thaw/System/MaintenanceTools.swift
 $(SRCROOT)/Thaw/System/MemoryReclaimer.swift
 $(SRCROOT)/Thaw/System/Migration.swift
@@ -428,6 +431,7 @@ $(SRCROOT)/Thaw/System/Permissions/Permission.swift
 $(SRCROOT)/Thaw/System/Permissions/PermissionViews.swift
 $(SRCROOT)/Thaw/System/Permissions/PermissionsWindow.swift
 $(SRCROOT)/Thaw/System/Permissions/PickedFileAccess.swift
+$(SRCROOT)/Thaw/System/SettingsURIHandler+Launcher.swift
 $(SRCROOT)/Thaw/System/SettingsURIHandler.swift
 $(SRCROOT)/Thaw/System/Updates.swift
 $(SRCROOT)/Thaw/System/UserNotifications/UserNotificationIdentifier.swift

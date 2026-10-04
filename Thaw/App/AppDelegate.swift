@@ -282,7 +282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let host = url.host?.lowercased() ?? ""
 
         switch host {
-        case "set", "toggle", "get", "authorize", "reveal-item":
+        case "set", "toggle", "get", "authorize", "reveal-item",
+             "list-items", "activate-item", "list-profiles", "apply-profile":
             handleSettingsURL(url, host: host, senderBundleId: senderBundleId)
             return
         default:
@@ -355,7 +356,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handles settings manipulation URLs (set/toggle).
     private func handleSettingsURL(_ url: URL, host: String, senderBundleId: String?) {
-        guard SettingsURIHandler.isEnabled() else {
+        // A built-in trusted sender works out of the box; everyone else needs the feature on.
+        guard SettingsURIHandler.isEnabled()
+            || SettingsURIHandler.isBuiltInTrustedSender(bundleIdentifier: senderBundleId)
+        else {
             appState.diagLog.debug("Settings URI is disabled, ignoring: \(url.absoluteString)")
             return
         }
@@ -399,6 +403,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             handleGetURL(url, sender: effectiveBundleId)
         case "reveal-item":
             handleRevealItemURL(url, sender: effectiveBundleId)
+        case "list-items", "activate-item", "list-profiles", "apply-profile":
+            handleLauncherURL(url, sender: effectiveBundleId)
         default:
             break
         }
@@ -523,6 +529,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sectionController.revealItemTemporarily(identifier)
         sectionController.scheduleTemporaryItemConceal(identifier)
         appState.diagLog.info("Settings URI reveal-item: revealed \(identifier) for sender \(sender ?? "unknown")")
+    }
+
+    /// Handles the launcher operations: list-items, activate-item, list-profiles, apply-profile.
+    /// The work is async because activation and profile layout report an outcome once they finish.
+    private func handleLauncherURL(_ url: URL, sender: String?) {
+        guard let request = LauncherURIRequest(url: url) else {
+            appState.diagLog.warning("Launcher URI: invalid URL \(url.absoluteString)")
+            return
+        }
+        let state = appState
+        Task {
+            await SettingsURIHandler.handleLauncherRequest(request, sender: sender, appState: state)
+        }
     }
 
     /// Handles thaw://get?key=X&callback=Y URLs.
