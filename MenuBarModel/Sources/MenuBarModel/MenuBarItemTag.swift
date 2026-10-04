@@ -621,6 +621,24 @@ public struct MenuBarItemTag: Hashable, CustomStringConvertible, Sendable, Codab
         return "\(prefix)\(canonicalize(suffix))"
     }
 
+    /// Drops remembered identifiers of one bundle that can no longer name an item: AppKit placeholders
+    /// (_NS:<n>), which enumeration no longer accepts, and OneDrive's bare title once an account title is known.
+    public static func identifiersWithoutStaleAliases(_ identifiers: Set<String>, bundleID: String) -> Set<String> {
+        let prefix = "\(bundleID):"
+        func title(of identifier: String) -> Substring? {
+            identifier.hasPrefix(prefix) ? identifier.dropFirst(prefix.count) : nil
+        }
+        let hasOneDriveAccountTitle = hasMultilineStatusTitles(bundleID)
+            && identifiers.contains { title(of: $0)?.hasPrefix("OneDrive \u{2014} ") == true }
+        return identifiers.filter { identifier in
+            guard let title = title(of: identifier) else { return true }
+            if title.wholeMatch(of: /_NS:\d+(?::\d+)?/) != nil {
+                return false
+            }
+            return !(hasOneDriveAccountTitle && title == "OneDrive")
+        }
+    }
+
     public static func canonicalPersistentIdentifiers(_ identifiers: [String]) -> [String] {
         var seen = Set<String>()
         return identifiers.compactMap { identifier in
