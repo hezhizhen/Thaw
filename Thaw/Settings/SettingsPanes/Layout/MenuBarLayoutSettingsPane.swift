@@ -680,6 +680,7 @@ private struct LayoutSuggestionCards: View {
 
     // Hints suggest improvements, not failures; closing means "Not now" and suppresses them for a month.
     var body: some View {
+        // swiftlint:disable:next redundant_discardable_let
         let _ = dismissals
         let behindNotch = LayoutSuggestions.itemsBehindNotch(visibleItems, notchRects: MenuBarNotchGeometry.rects)
         if !behindNotch.isEmpty, !LayoutSuggestionDismissal.isQuiet(.itemsBehindNotch) {

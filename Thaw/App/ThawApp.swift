@@ -10,7 +10,7 @@ import ThawCapture
 
 @main
 @MainActor
-struct ThawEntryPoint {
+enum ThawEntryPoint {
     static func main() {
         if NativeVisibilityRecoveryLaunch.isRequested {
             NativeVisibilityRecoveryApp.main()

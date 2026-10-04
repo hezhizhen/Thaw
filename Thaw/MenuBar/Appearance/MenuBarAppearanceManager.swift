@@ -329,7 +329,6 @@ final class MenuBarAppearanceManager {
 private extension UserDefaults {
     /// The system's Liquid Glass tint, observable with key-value observing.
     /// The name has to match the preference key.
-    // swiftlint:disable:next identifier_name
     @objc dynamic var NSGlassTintAmount: Double {
         double(forKey: "NSGlassTintAmount")
     }

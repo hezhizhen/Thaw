@@ -81,8 +81,10 @@ extension MenuBarItemManager {
                revealed == section || (section == .hidden && revealed == .alwaysHidden)
             {
                 await applySectionItemOrder(
-                    sections: [section], controller: controller,
-                    whileRevealing: revealed, reason: .userReorder
+                    sections: [section],
+                    controller: controller,
+                    whileRevealing: revealed,
+                    reason: .userReorder
                 )
             }
             await cacheItemsRegardless(skipRecentMoveCheck: true)
