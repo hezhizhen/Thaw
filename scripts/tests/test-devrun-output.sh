@@ -5,9 +5,9 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 mkdir -p "$TEMP_DIR/checkout with spaces/scripts" "$TEMP_DIR/PlatformRuntimeKit" "$TEMP_DIR/bin"
-cp "$ROOT/scripts/thaw-devrun.sh" "$TEMP_DIR/checkout with spaces/scripts/"
+cp "$ROOT/scripts/devrun.sh" "$TEMP_DIR/checkout with spaces/scripts/"
 touch "$TEMP_DIR/PlatformRuntimeKit/Package.swift"
-SCRIPT="$TEMP_DIR/checkout with spaces/scripts/thaw-devrun.sh"
+SCRIPT="$TEMP_DIR/checkout with spaces/scripts/devrun.sh"
 
 # All commands that could touch the installed app are replaced inside the fixture.
 cat > "$TEMP_DIR/bin/fake-command" <<'STUB'
@@ -239,4 +239,4 @@ contains "$OUTPUT" 'Check prerequisites: failed'
 contains "$OUTPUT" 'Place the PlatformRuntimeKit checkout beside this Thaw checkout.'
 excludes "$COMMANDS" 'xcodebuild '
 
-printf 'thaw-devrun output: all scenarios passed\n'
+printf 'devrun output: all scenarios passed\n'

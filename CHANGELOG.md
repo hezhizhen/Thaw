@@ -42,7 +42,7 @@ and the Sparkle appcast, unless overridden with the `release_notes` input.
 ### Development
 
 - Local builds compile the sibling PlatformRuntimeKit source checkout against the same MenuBarModel as Thaw.
-- `thaw-devrun.sh` reports build stages, saves full logs outside the checkout, supports `--verbose`, and verifies the launched process and diagnostic-logging preference.
+- `devrun.sh` reports build stages, saves full logs outside the checkout, supports `--verbose`, and verifies the launched process and diagnostic-logging preference.
 
 ## [3.0.0-beta.1] - 2026-10-01
 

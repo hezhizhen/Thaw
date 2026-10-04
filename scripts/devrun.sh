@@ -10,10 +10,10 @@
 # Diagnostic logging uses the saved preference, or the build's default.
 #
 # Usage:
-#   ./scripts/thaw-devrun.sh                  # Release
-#   ./scripts/thaw-devrun.sh --debug          # Debug, for the debugger
-#   ./scripts/thaw-devrun.sh --skip-packages  # skip explicit package resolution
-#   ./scripts/thaw-devrun.sh --verbose        # stream raw command output too
+#   ./scripts/devrun.sh                  # Release
+#   ./scripts/devrun.sh --debug          # Debug, for the debugger
+#   ./scripts/devrun.sh --skip-packages  # skip explicit package resolution
+#   ./scripts/devrun.sh --verbose        # stream raw command output too
 set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 SCRIPT_PATH="$SCRIPT_DIR/$(basename "$0")"
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 LOG_ROOT=${TMPDIR:-/tmp}
-LOG_DIR=$(mktemp -d "${LOG_ROOT%/}/thaw-devrun.XXXXXX")
+LOG_DIR=$(mktemp -d "${LOG_ROOT%/}/devrun.XXXXXX")
 LOG="$LOG_DIR/build.log"
 BUILD_SETTINGS="$LOG_DIR/build-settings.txt"
 PID_FILE="$LOG_DIR/app.pid"

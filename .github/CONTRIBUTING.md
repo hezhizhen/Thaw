@@ -97,12 +97,12 @@ workspace/
 ```
 
 Both packages must use `Thaw/MenuBarModel`. The kit defaults to that sibling
-path; `scripts/thaw-devrun.sh` also sets `MENU_BAR_MODEL_PATH` explicitly.
+path; `scripts/devrun.sh` also sets `MENU_BAR_MODEL_PATH` explicitly.
 
 ```bash
 open Thaw.xcodeproj
 # Or build, install, and launch alongside the released app:
-./scripts/thaw-devrun.sh
+./scripts/devrun.sh
 ```
 
 ### Build a shareable DMG without a release
