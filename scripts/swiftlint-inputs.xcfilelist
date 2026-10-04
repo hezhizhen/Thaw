@@ -57,6 +57,7 @@ $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/AppearanceMenuBarScanTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/BridgingCaptureSizeTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/BridgingTypeGuardTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/CaptureActivityPolicyTests.swift
+$(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/CaptureMenuBarScanTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/ChronoControlIdentityTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/ControlItemSeatingTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/DiagnosticLoggerTests.swift
@@ -86,6 +87,7 @@ $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/NativeOverflowControlTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/OccupancyForecastTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/ParkedOffMenuBarBandTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/SectionTransitionSerializationTests.swift
+$(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/StaleAliasTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/TargetedMenuBarScanTests.swift
 $(SRCROOT)/MenuBarModel/Tests/MenuBarModelTests/VolatileTitleTests.swift
 $(SRCROOT)/Shared/Utilities/AXHelpers.swift
@@ -137,6 +139,7 @@ $(SRCROOT)/Thaw/Items/Capture/MenuBarItemImageCache+Recapture.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarItemImageCache.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarItemImageCacheDiskStore.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarItemVolatilityIndex.swift
+$(SRCROOT)/Thaw/Items/Capture/RecaptureCoalescer.swift
 $(SRCROOT)/Thaw/Items/Interaction/AXGeometryCatalog.swift
 $(SRCROOT)/Thaw/Items/Interaction/ClickReactionVerifier.swift
 $(SRCROOT)/Thaw/Items/Interaction/ItemHints.swift
@@ -213,6 +216,7 @@ $(SRCROOT)/Thaw/MenuBar/Appearance/Configurations/MenuBarTintKind.swift
 $(SRCROOT)/Thaw/MenuBar/Appearance/MenuBarAppearanceManager.swift
 $(SRCROOT)/Thaw/MenuBar/Appearance/WallpaperChangeMonitor.swift
 $(SRCROOT)/Thaw/MenuBar/Appearance/WallpaperPalette.swift
+$(SRCROOT)/Thaw/MenuBar/Appearance/WallpaperPaletteRefreshPolicy.swift
 $(SRCROOT)/Thaw/MenuBar/ApplicationMenuCover.swift
 $(SRCROOT)/Thaw/MenuBar/ApplicationMenuCoverPolicy.swift
 $(SRCROOT)/Thaw/MenuBar/Backends/MenuBarBackendProvider.swift
