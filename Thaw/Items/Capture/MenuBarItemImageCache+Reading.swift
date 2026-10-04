@@ -600,7 +600,8 @@ extension MenuBarItemImageCache {
         scale: CGFloat,
         appState: AppState,
         freshBounds: Bool = false,
-        concealedIdentifiers: Set<String> = []
+        concealedIdentifiers: Set<String> = [],
+        geometryOwners: Set<pid_t> = []
     ) async -> CapturePass {
         // Dividers capture as transparent; the visible Thaw icon crops from the
         // display strip like any Liquid Glass item. The recording indicator is
@@ -650,7 +651,8 @@ extension MenuBarItemImageCache {
             displayID: displayID,
             screenFrame: screenFrame,
             freshBounds: freshBounds,
-            concealedIdentifiers: concealedIdentifiers
+            concealedIdentifiers: concealedIdentifiers,
+            using: LiveMenuBarCaptureReader(geometryOwners: geometryOwners)
         )
     }
 
@@ -775,7 +777,12 @@ extension MenuBarItemImageCache {
             // Re-read geometry before the screenshot, including visible items;
             // the post-capture ownership check still rejects movement or ambiguity.
             freshBounds: shouldUseFreshBounds,
-            concealedIdentifiers: concealedIdentifiers
+            concealedIdentifiers: concealedIdentifiers,
+            geometryOwners: Self.captureGeometryOwners(
+                for: items,
+                knownItems: appState.itemManager.managedItems,
+                recentItems: appState.itemManager.onScreenItemSnapshot.items
+            )
         )
         if !captureResult.unreadable.isEmpty {
             MenuBarItemImageCache.diagLog.debug(
