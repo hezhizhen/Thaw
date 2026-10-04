@@ -1431,6 +1431,8 @@ final class MenuBarManager {
 
     func setRevealHideTransitionActive(_ active: Bool) {
         revealHideTransitionActive = active
+        // Either edge of the transition moves the items, so the pill should follow closely.
+        leadingEdgeWatcher.expectChange()
     }
 
     /// Suppress width nudges and structural normalization during the transition or fixed settling window.
