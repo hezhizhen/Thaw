@@ -13,7 +13,7 @@ import Security
 /// Handles settings manipulation via thaw:// URLs with whitelist-based security.
 @MainActor
 enum SettingsURIHandler {
-    private static let diagLog = DiagLog(category: "SettingsURIHandler")
+    static let diagLog = DiagLog(category: "SettingsURIHandler")
 
     /// Tests use a private center so fixture writes cannot reach the running app's settings models.
     static var settingsChangeNotificationCenter = NotificationCenter.default
@@ -132,13 +132,30 @@ enum SettingsURIHandler {
 
     // MARK: - Security
 
+    /// Apps from the same developer that may control settings without the authorization prompt.
+    /// Any app can claim a bundle ID, so the app must also carry this app's team ID.
+    static let builtInTrustedBundleIDs: Set<String> = ["com.thaw.floe"]
+
+    /// Whether a sender is trusted without asking: a built-in bundle ID signed by this app's team.
+    /// An unsigned build of either side has no team and is never trusted this way.
+    static func isBuiltInTrusted(bundleId: String, senderTeamID: String?, ownTeamID: String?) -> Bool {
+        guard builtInTrustedBundleIDs.contains(bundleId),
+              let senderTeamID, let ownTeamID
+        else { return false }
+        return senderTeamID == ownTeamID
+    }
+
     /// Gets the team identifier for a bundle ID by checking the app's code signature.
     private static func getTeamIdentifier(for bundleId: String) -> String? {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             diagLog.debug("Settings URI: Cannot find app URL for \(bundleId)")
             return nil
         }
+        return teamIdentifier(ofAppAt: appURL, logName: bundleId)
+    }
 
+    /// The team identifier in the code signature of the app at appURL.
+    private static func teamIdentifier(ofAppAt appURL: URL, logName bundleId: String) -> String? {
         var staticCode: SecStaticCode?
         let createStatus = SecStaticCodeCreateWithPath(appURL as CFURL, [], &staticCode)
         guard createStatus == errSecSuccess, let code = staticCode else {
@@ -197,6 +214,17 @@ enum SettingsURIHandler {
         guard let bundleId = bundleIdentifier, !bundleId.isEmpty else {
             diagLog.warning("Settings URI: No sender bundle ID provided")
             return false
+        }
+
+        if builtInTrustedBundleIDs.contains(bundleId),
+           isBuiltInTrusted(
+               bundleId: bundleId,
+               senderTeamID: getTeamIdentifier(for: bundleId),
+               ownTeamID: teamIdentifier(ofAppAt: Bundle.main.bundleURL, logName: "this app")
+           )
+        {
+            diagLog.debug("Settings URI: Authorized built-in request from \(bundleId)")
+            return true
         }
 
         let whitelist = Defaults.stringArray(forKey: .settingsURIWhitelist) ?? []
@@ -1078,7 +1106,7 @@ enum SettingsURIHandler {
     private static let blockedCallbackSchemes: Set<String> = ["file", "javascript", "data", "about", "blob"]
 
     /// Sends response via callback URL.
-    private static func sendCallbackResponse(response: [String: Any], callback: String) -> Bool {
+    static func sendCallbackResponse(response: [String: Any], callback: String) -> Bool {
         // Use URLComponents to compose callbacks safely.
         guard var components = URLComponents(string: callback) else {
             diagLog.error("Settings URI Get: Invalid callback URL format: \(callback)")
@@ -1121,7 +1149,7 @@ enum SettingsURIHandler {
     }
 
     /// Sends response via distributed notification.
-    private static func sendBroadcastResponse(response: [String: Any]) -> Bool {
+    static func sendBroadcastResponse(response: [String: Any]) -> Bool {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: response, options: .sortedKeys),
               let jsonString = String(data: jsonData, encoding: .utf8)
         else {
