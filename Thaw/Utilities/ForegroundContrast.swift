@@ -116,7 +116,7 @@ nonisolated enum ForegroundContrast {
     /// needs one polarity into one that needs the other.
     ///
     /// - Parameter color: The color to convert.
-    private static func sRGBComponents(
+    static func sRGBComponents(
         of color: CGColor
     ) -> (red: Double, green: Double, blue: Double, alpha: Double)? {
         guard

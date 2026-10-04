@@ -460,6 +460,25 @@ Manage authorized apps in **Settings → Automation**:
 
 Settings URI requests fail silently when the feature is disabled, the requesting app is not whitelisted (and the user denied authorization), the setting key is invalid, or the boolean value is not `true`/`false`/`1`/`0`/`yes`/`no`. Check Thaw's diagnostic logs for details.
 
+#### get-appearance
+
+`thaw://get-appearance?callback=<url>[&requestId=<id>]` returns the menu bar appearance resolved for the current color scheme, so a partner app can match it.
+
+```
+{"requestId":"5","operation":"get-appearance","status":"success",
+ "data":{"version":1,"colorScheme":"dark","shape":"full","hasRoundedShape":true,"hasShadow":true,
+  "border":{"color":{"red":0,"green":0,"blue":0,"alpha":1},"width":1,"style":"solid"},
+  "tint":{"kind":"solid","opacity":0.2,"color":{"red":0,"green":0,"blue":0,"alpha":1}},
+  "background":{"kind":"none","opacity":1}}}
+```
+
+- `shape` is `none`, `full`, `split` or `notch`.
+- A fill's `kind` is `none`, `solid`, `gradient`, `glass`, `adaptive` or (tint only) `adaptiveGradient`. The adaptive kinds follow the wallpaper and carry no color. `color` is present for `solid` and for colored glass, `stops` (each with `color` and `location` from 0 to 1) for `gradient`, and `glassStyle` (`regular`, `clear`, `liquid`, `dynamic`) with `glassIsColored` for `glass`.
+- Colors are sRGB components from 0 to 1.
+- `border` is omitted when the border is off; its `style` is `solid`, `dashed` or `dotted`.
+
+Thaw posts the distributed notification `com.stonerl.Thaw.appearanceDidChange` when the appearance changes. It carries no payload: fetch again. The values are for one color scheme, so also fetch again when the system switches between light and dark.
+
 ## Notes
 
 - All `thaw://` URLs work even when Thaw is not in the foreground

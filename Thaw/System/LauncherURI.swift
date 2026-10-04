@@ -14,11 +14,12 @@ nonisolated enum LauncherURIOperation: String, CaseIterable, Sendable {
     case activateItem = "activate-item"
     case listProfiles = "list-profiles"
     case applyProfile = "apply-profile"
+    case getAppearance = "get-appearance"
 
     /// The query parameter carrying the identifier the operation acts on.
     var identifierParameter: String? {
         switch self {
-        case .listItems, .listProfiles: nil
+        case .listItems, .listProfiles, .getAppearance: nil
         case .activateItem: "item-id"
         case .applyProfile: "profile-id"
         }

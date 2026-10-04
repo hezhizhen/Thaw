@@ -283,7 +283,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         switch host {
         case "set", "toggle", "get", "authorize", "reveal-item",
-             "list-items", "activate-item", "list-profiles", "apply-profile":
+             "list-items", "activate-item", "list-profiles", "apply-profile", "get-appearance":
             handleSettingsURL(url, host: host, senderBundleId: senderBundleId)
             return
         default:
@@ -403,7 +403,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             handleGetURL(url, sender: effectiveBundleId)
         case "reveal-item":
             handleRevealItemURL(url, sender: effectiveBundleId)
-        case "list-items", "activate-item", "list-profiles", "apply-profile":
+        case "list-items", "activate-item", "list-profiles", "apply-profile", "get-appearance":
             handleLauncherURL(url, sender: effectiveBundleId)
         default:
             break
@@ -531,7 +531,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appState.diagLog.info("Settings URI reveal-item: revealed \(identifier) for sender \(sender ?? "unknown")")
     }
 
-    /// Handles the launcher operations: list-items, activate-item, list-profiles, apply-profile.
+    /// Handles the launcher operations, including get-appearance.
     /// The work is async because activation and profile layout report an outcome once they finish.
     private func handleLauncherURL(_ url: URL, sender: String?) {
         guard let request = LauncherURIRequest(url: url) else {

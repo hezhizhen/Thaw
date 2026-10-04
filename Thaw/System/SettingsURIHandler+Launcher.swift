@@ -24,14 +24,12 @@ extension SettingsURIHandler {
 
         let response: [String: Any]
         switch operation {
-        case .listItems, .listProfiles:
+        case .listItems, .listProfiles, .getAppearance:
             guard request.hasResponseMechanism else {
                 diagLog.warning("Launcher URI \(operation.rawValue): provide callback=<url> or broadcast=true")
                 return
             }
-            response = operation == .listItems
-                ? listItemsResponse(appState: appState, requestId: requestId)
-                : listProfilesResponse(appState: appState, requestId: requestId)
+            response = queryResponse(for: operation, appState: appState, requestId: requestId)
         case .activateItem, .applyProfile:
             if let identifier = request.identifier {
                 response = operation == .activateItem
@@ -50,6 +48,22 @@ extension SettingsURIHandler {
         }
 
         deliverLauncherResponse(response, for: request, requestId: requestId)
+    }
+
+    /// The answer to an operation that only reads state.
+    private static func queryResponse(
+        for operation: LauncherURIOperation,
+        appState: AppState,
+        requestId: String
+    ) -> [String: Any] {
+        switch operation {
+        case .listItems:
+            listItemsResponse(appState: appState, requestId: requestId)
+        case .getAppearance:
+            appearanceResponse(appState: appState, requestId: requestId)
+        case .listProfiles, .activateItem, .applyProfile:
+            listProfilesResponse(appState: appState, requestId: requestId)
+        }
     }
 
     private static func listItemsResponse(appState: AppState, requestId: String) -> [String: Any] {
@@ -79,6 +93,20 @@ extension SettingsURIHandler {
         return LauncherURIResponse.success(
             LauncherURIPayload.ItemList(items: items),
             operation: .listItems,
+            requestId: requestId
+        )
+    }
+
+    private static func appearanceResponse(appState: AppState, requestId: String) -> [String: Any] {
+        let configuration = appState.appearanceManager.effectiveConfiguration
+        return LauncherURIResponse.success(
+            SharedAppearance(
+                configuration: configuration.current,
+                shapeKind: configuration.shapeKind,
+                hasRoundedShape: configuration.hasRoundedShape,
+                isDark: SystemAppearance.current == .dark
+            ),
+            operation: .getAppearance,
             requestId: requestId
         )
     }

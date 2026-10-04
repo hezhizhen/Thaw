@@ -179,6 +179,13 @@ final class MenuBarAppearanceManager {
             for await configuration in changes._throttle(for: .milliseconds(100), latest: true) {
                 guard let self, let configuration else { return }
                 updateOverlayPanels(for: configuration)
+                // Partner apps mirror the look; they fetch it again on this.
+                DistributedNotificationCenter.default().postNotificationName(
+                    SharedAppearance.didChangeNotification,
+                    object: nil,
+                    userInfo: nil,
+                    deliverImmediately: true
+                )
             }
         }
     }

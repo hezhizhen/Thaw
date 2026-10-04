@@ -413,6 +413,7 @@ $(SRCROOT)/Thaw/Settings/SettingsWindow.swift
 $(SRCROOT)/Thaw/Settings/UpdateConsentSheet.swift
 $(SRCROOT)/Thaw/Settings/WhatsNewWindow.swift
 $(SRCROOT)/Thaw/System/AXBridgeDiagnostics.swift
+$(SRCROOT)/Thaw/System/AppearanceSharing.swift
 $(SRCROOT)/Thaw/System/ApplicationTermination.swift
 $(SRCROOT)/Thaw/System/ConflictingAppDetector.swift
 $(SRCROOT)/Thaw/System/Defaults.swift
