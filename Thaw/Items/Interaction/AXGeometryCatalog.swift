@@ -67,6 +67,31 @@ nonisolated enum AXGeometryCatalog {
         )
     }
 
+    /// Keeps fallback numbering in AX child order, independent of on-screen order.
+    static func rootIdentityTitle(
+        namespace: MenuBarItemTag.Namespace,
+        attributes: AXHelpers.MenuBarChildAttributes,
+        descendants: [AXHelpers.MenuBarChildAttributes],
+        maximumItemHeight: CGFloat,
+        fallbackIndex: inout Int
+    ) -> String? {
+        if let identity = identityTitle(namespace: namespace, attributes: attributes, descendants: descendants) {
+            return identity
+        }
+        // MenuBarAgent's unnamed extras are transition noise, not inventory items.
+        guard namespace != .menuBarAgent,
+              MenuBarItemAXProvider.itemFrame(attributes.frame, maximumHeight: maximumItemHeight) != nil
+        else { return nil }
+        let identity = MenuBarItemAXProvider.identityTitle(
+            namespace: namespace,
+            identifier: nil,
+            accessibilityDescription: nil,
+            displayTitle: "Item-\(fallbackIndex)"
+        )
+        fallbackIndex += 1
+        return identity
+    }
+
     static func match(ownerPID: pid_t, identityTitle: String, bounds: CGRect, in entries: [Entry]) -> Match {
         let owned = entries.filter { $0.ownerPID == ownerPID }
         let identified = owned.filter { $0.identityTitle == identityTitle }
@@ -170,6 +195,8 @@ nonisolated enum AXGeometryCatalog {
             for itemIndex in children.indices {
                 results.append(Entry(ownerPID: pid, itemIndex: itemIndex, identityTitle: nil, frame: .zero))
             }
+            let itemHeightCeiling = MenuBarItemAXProvider.maxItemHeight(menuBarHeight: NSScreen.tallestCachedMenuBarHeight)
+            var fallbackIndex = 0
             for (itemIndex, child) in children.enumerated() {
                 guard canContinue(until: deadline), visited < maxElementsVisited else { break }
                 try? child.setMessagingTimeout(messagingTimeout)
@@ -182,7 +209,13 @@ nonisolated enum AXGeometryCatalog {
                     try? inner.setMessagingTimeout(messagingTimeout)
                     innerAttributes.append(AXHelpers.descendantAttributes(for: inner, includingChildren: true))
                 }
-                let identity = identityTitle(namespace: namespace, attributes: attributes, descendants: innerAttributes)
+                let identity = rootIdentityTitle(
+                    namespace: namespace,
+                    attributes: attributes,
+                    descendants: innerAttributes,
+                    maximumItemHeight: itemHeightCeiling,
+                    fallbackIndex: &fallbackIndex
+                )
                 walk(
                     child,
                     ownerPID: pid,
