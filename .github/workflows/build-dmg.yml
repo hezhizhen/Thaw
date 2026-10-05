@@ -84,6 +84,12 @@ jobs:
         with:
           xcode-version: latest
 
+      # The Thaw target's lint build phase requires the pinned SwiftLint on PATH.
+      - name: Install pinned SwiftLint
+        run: |
+          sh Thaw/scripts/install-swiftlint.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Configure signing
         uses: thaw-app/org-ci/actions/configure-signing@6adcb3aa53a28cfa9d4cd2f55e2d5f5c75af980b
         with:
