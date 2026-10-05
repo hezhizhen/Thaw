@@ -334,6 +334,96 @@ struct MenuBarItemCaptureFallbackTests {
         }
     }
 
+    @Test("An owner-window crop is rejected when icons move while that screenshot is acquired", arguments: [false, true])
+    private func ownerWindowMovementDuringAcquisitionIsRejected(stripReadsBlank: Bool) async throws {
+        let first = makeItem(title: "First", x: 1000, windowID: 101)
+        let second = makeItem(title: "Second", x: 1024, windowID: 102)
+        let gate = CaptureGate()
+        let reader = try CaptureFixture(
+            hosting: nil,
+            barWindow: makeCapture(opaque: false, glyphX: 1008, extraGlyphXs: [1032]),
+            strip: stripReadsBlank ? makeCapture(opaque: true, glyph: false) : nil,
+            items: [first, second],
+            gates: [.barWindow: gate]
+        )
+        let cache = MenuBarItemImageCache(screenIsLocked: { false })
+        let pass = Task {
+            await cache.axBoundsCapture(
+                [(first, first.bounds), (second, second.bounds)],
+                scale: 2, displayID: 42, validateFreshBounds: true,
+                concealedIdentifiers: [], using: reader
+            )
+        }
+        await gate.waitUntilArrived()
+        // The two same-owner icons swap while the owner-window screenshot is in flight.
+        await reader.setItems([
+            makeItem(title: "First", x: 1024, windowID: 101),
+            makeItem(title: "Second", x: 1000, windowID: 102),
+        ])
+        await gate.release()
+        let result = await pass.value
+
+        #expect(result.captured.isEmpty)
+        #expect(result.unconditionallyInvalidatedTags.isEmpty)
+        #expect(await reader.captures.last == .barWindow)
+        #expect(await reader.sourcesAtInventoryRead.last == .barWindow, "The owner-window crop needs a read taken after it")
+    }
+
+    @Test("Overflow appearing during the owner-window screenshot rejects that source", arguments: [false, true])
+    private func ownerWindowOverflowDuringAcquisitionIsRejected(validateFreshBounds: Bool) async throws {
+        let item = makeItem()
+        let reader = try CaptureFixture(
+            hosting: nil,
+            barWindow: makeCapture(opaque: false),
+            strip: nil,
+            items: [item],
+            ownerWindowOverflowBounds: [item.bounds]
+        )
+        let result = await capture(item, using: reader, validateFreshBounds: validateFreshBounds)
+
+        #expect(result.captured.isEmpty)
+        #expect(result.invalidatedTags.contains(item.tag))
+    }
+
+    @Test("A stable owner-window fallback is still revalidated and published")
+    func stableOwnerWindowFallbackStillCaptures() async throws {
+        let item = makeItem()
+        let reader = try CaptureFixture(
+            hosting: nil,
+            barWindow: makeCapture(opaque: false),
+            strip: nil,
+            items: [item]
+        )
+        let result = await capture(item, using: reader, validateFreshBounds: true)
+
+        #expect(result.captured[item.tag] != nil)
+        #expect(await reader.captures == [.strip, .hosting, .barWindow])
+        #expect(await reader.sourcesAtInventoryRead == [.barWindow], "Only the owner window produced pixels, and its read follows it")
+    }
+
+    @Test("A later owner window recovers while the owner that moved keeps its prior image", arguments: [false, true])
+    private func ownerWindowMovementOnlyCostsTheMovedOwner(movedOwnerFirst: Bool) async throws {
+        let movedPID: pid_t = movedOwnerFirst ? 999_990 : 999_992
+        let stablePID: pid_t = 999_991
+        let moved = makeItem(title: "Moved", x: 1000, windowID: 101, ownerPID: movedPID)
+        let stable = makeItem(title: "Stable", x: 1200, windowID: 102, ownerPID: stablePID)
+        let reader = try CaptureFixture(
+            hosting: nil,
+            barWindow: makeCapture(opaque: false, glyphX: 1008, extraGlyphXs: [1208]),
+            strip: nil,
+            items: [moved, stable],
+            itemsAfterOwnerWindow: [movedPID: [makeItem(title: "Moved", x: 1024, windowID: 101, ownerPID: movedPID), stable]]
+        )
+        let cache = MenuBarItemImageCache(screenIsLocked: { false })
+        let result = await cache.axBoundsCapture(
+            [(moved, moved.bounds), (stable, stable.bounds)],
+            scale: 2, displayID: 42, validateFreshBounds: true,
+            concealedIdentifiers: [], using: reader
+        )
+
+        #expect(Set(result.captured.keys) == [stable.tag])
+    }
+
     private func capture(
         _ item: MenuBarItem,
         using reader: CaptureFixture,
@@ -351,12 +441,17 @@ struct MenuBarItemCaptureFallbackTests {
         )
     }
 
-    private func makeItem(title: String = "Status", x: CGFloat = 1000, windowID: CGWindowID = 101) -> MenuBarItem {
+    private func makeItem(
+        title: String = "Status",
+        x: CGFloat = 1000,
+        windowID: CGWindowID = 101,
+        ownerPID: pid_t = 999_991
+    ) -> MenuBarItem {
         MenuBarItem(
             tag: MenuBarItemTag(namespace: .string("com.example.status"), title: title, instanceIndex: 0),
             windowID: windowID,
-            ownerPID: 999_991,
-            sourcePID: 999_991,
+            ownerPID: ownerPID,
+            sourcePID: ownerPID,
             bounds: CGRect(x: x, y: 4.5, width: 24, height: 24),
             title: title,
             isOnScreen: true
@@ -367,6 +462,7 @@ struct MenuBarItemCaptureFallbackTests {
         opaque: Bool,
         glyph: Bool = true,
         glyphX: CGFloat = 1008,
+        extraGlyphXs: [CGFloat] = [],
         busyBackground: Bool = false
     ) throws -> ScreenCapture.MenuBarHostingCapture {
         let frame = CGRect(x: 0, y: 0, width: 1470, height: 33)
@@ -402,9 +498,38 @@ struct MenuBarItemCaptureFallbackTests {
         }
         if glyph {
             context.setFillColor(CGColor(gray: 0, alpha: 1))
-            context.fill(CGRect(x: glyphX, y: 12, width: 8, height: 10))
+            for x in [glyphX] + extraGlyphXs {
+                context.fill(CGRect(x: x, y: 12, width: 8, height: 10))
+            }
         }
         return try ScreenCapture.MenuBarHostingCapture(image: #require(context.makeImage()), windowFrame: frame, scale: 2)
+    }
+}
+
+/// Holds one fixture source mid-acquisition until the test releases it.
+private actor CaptureGate {
+    private var arrived = false
+    private var released = false
+    private var arrivalWaiter: CheckedContinuation<Void, Never>?
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+
+    func arriveAndWait() async {
+        arrived = true
+        arrivalWaiter?.resume()
+        arrivalWaiter = nil
+        guard !released else { return }
+        await withCheckedContinuation { releaseWaiter = $0 }
+    }
+
+    func waitUntilArrived() async {
+        guard !arrived else { return }
+        await withCheckedContinuation { arrivalWaiter = $0 }
+    }
+
+    func release() {
+        released = true
+        releaseWaiter?.resume()
+        releaseWaiter = nil
     }
 }
 
@@ -421,13 +546,18 @@ private actor CaptureFixture: MenuBarCaptureReading {
     let barWindow: ScreenCapture.MenuBarHostingCapture?
     let strip: ScreenCapture.MenuBarHostingCapture?
     let geometry: Geometry
-    let items: [MenuBarItem]
+    private(set) var items: [MenuBarItem]
     let stripOverflowBounds: [CGRect]
+    let ownerWindowOverflowBounds: [CGRect]
+    /// The inventory a geometry read reports once that owner's window was captured.
+    let itemsAfterOwnerWindow: [pid_t: [MenuBarItem]]
+    let gates: [Source: CaptureGate]
     let onCapture: @Sendable (Source) -> Void
     private(set) var captures: [Source] = []
     private(set) var sourcesAtValidation: [Source] = []
     private(set) var validatedTags: [MenuBarItemTag] = []
     private var inventoryReadCount = 0
+    private(set) var sourcesAtInventoryRead: [Source?] = []
     private(set) var inventoryReadsAtCapture: [Int] = []
 
     init(
@@ -437,6 +567,9 @@ private actor CaptureFixture: MenuBarCaptureReading {
         geometry: Geometry = .stable,
         items: [MenuBarItem] = [],
         stripOverflowBounds: [CGRect] = [],
+        ownerWindowOverflowBounds: [CGRect] = [],
+        itemsAfterOwnerWindow: [pid_t: [MenuBarItem]] = [:],
+        gates: [Source: CaptureGate] = [:],
         onCapture: @escaping @Sendable (Source) -> Void = { _ in }
     ) {
         self.hosting = hosting
@@ -445,7 +578,14 @@ private actor CaptureFixture: MenuBarCaptureReading {
         self.geometry = geometry
         self.items = items
         self.stripOverflowBounds = stripOverflowBounds
+        self.ownerWindowOverflowBounds = ownerWindowOverflowBounds
+        self.itemsAfterOwnerWindow = itemsAfterOwnerWindow
+        self.gates = gates
         self.onCapture = onCapture
+    }
+
+    func setItems(_ items: [MenuBarItem]) {
+        self.items = items
     }
 
     func captureBand(displayID _: CGDirectDisplayID) async -> (frame: CGRect, menuMaxX: CGFloat?) {
@@ -453,7 +593,8 @@ private actor CaptureFixture: MenuBarCaptureReading {
     }
 
     func overflowBounds(displayID _: CGDirectDisplayID) async -> [CGRect] {
-        captures.contains(.strip) ? stripOverflowBounds : []
+        (captures.contains(.strip) ? stripOverflowBounds : [])
+            + (captures.contains(.barWindow) ? ownerWindowOverflowBounds : [])
     }
 
     func hostingCapture(displayID _: CGDirectDisplayID) async -> ScreenCapture.MenuBarHostingCapture? {
@@ -462,9 +603,13 @@ private actor CaptureFixture: MenuBarCaptureReading {
         return hosting
     }
 
-    func barWindowCapture(ownerPID _: pid_t, displayID _: CGDirectDisplayID) async -> ScreenCapture.MenuBarHostingCapture? {
+    func barWindowCapture(ownerPID: pid_t, displayID _: CGDirectDisplayID) async -> ScreenCapture.MenuBarHostingCapture? {
         captures.append(.barWindow)
         onCapture(.barWindow)
+        await gates[.barWindow]?.arriveAndWait()
+        if let moved = itemsAfterOwnerWindow[ownerPID] {
+            items = moved
+        }
         return barWindow
     }
 
@@ -477,6 +622,7 @@ private actor CaptureFixture: MenuBarCaptureReading {
 
     func menuBarItems(displayID _: CGDirectDisplayID) async -> [MenuBarItem] {
         inventoryReadCount += 1
+        sourcesAtInventoryRead.append(captures.last)
         return items
     }
 
