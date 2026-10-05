@@ -39,8 +39,8 @@ nonisolated enum MenuBarItemAXProvider {
 
     /// Discovery and capture must skip the same frames to keep Item-N numbering aligned.
     static func itemFrame(_ reported: CGRect?, maximumHeight: CGFloat) -> CGRect? {
-        guard let reported, reported.height > 0, reported.height <= maximumHeight else { return nil }
-        return reported
+        guard let reported else { return nil }
+        return AXPrimitives.itemFrame(reported, maximumHeight: maximumHeight)
     }
 
     /// Whether an AX-reported item frame lies on the given display.
