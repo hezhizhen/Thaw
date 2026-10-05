@@ -19,9 +19,9 @@ enum LayoutBarVisibilityLimit: Equatable {
     var explanation: String {
         switch self {
         case .cannotShow:
-            String(localized: "macOS hides this icon while other icons are hidden because its app has no registered identity. Turn on native app hiding in Settings > General to show it.")
+            String(localized: "macOS hides this icon while other icons are hidden because its app has no registered identity.")
         case .cannotHide:
-            String(localized: "macOS won't let \(Constants.displayName) switch this app off, so its icon stays on the bar. Quitting and reopening the app can fix it.")
+            String(localized: "macOS won't let \(Constants.displayName) switch this app off, so its icon stays on the bar.")
         }
     }
 

@@ -41275,7 +41275,7 @@
     "macOS hides Focus, AirDrop, Now Playing and Fast User Switching whenever any other item is hidden, even in Visible. This puts a %@ icon in each one's place, with its main actions in the menu, and you can move or hide it like any other item. Turn this off to bring the originals back." : {
 
     },
-    "macOS hides this icon while other icons are hidden because its app has no registered identity. Turn on native app hiding in Settings > General to show it." : {
+    "macOS hides this icon while other icons are hidden because its app has no registered identity." : {
 
     },
     "macOS isn’t showing “%@” in the menu bar." : {
@@ -41418,7 +41418,7 @@
     "macOS requires %@ to make itself visible in the Dock while this setting is in effect." : {
 
     },
-    "macOS won't let %@ switch this app off, so its icon stays on the bar. Quitting and reopening the app can fix it." : {
+    "macOS won't let %@ switch this app off, so its icon stays on the bar." : {
 
     },
     "macOS's saved layout, by position" : {
