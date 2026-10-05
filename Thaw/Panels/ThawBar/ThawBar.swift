@@ -18,6 +18,8 @@ final class ThawBarPanel: NSPanel {
     private weak var appState: AppState?
 
     private let colorManager = ThawBarColorManager()
+    private let pointerLocation: @MainActor () -> CGPoint?
+    private let pointerInEmptyMenuBarSpace: @MainActor (AppState, NSScreen) -> Bool
 
     private(set) var currentSection: MenuBarSection.Name?
 
@@ -102,7 +104,16 @@ final class ThawBarPanel: NSPanel {
         lockPositionObservationTask?.cancel()
     }
 
-    init() {
+    private static func livePointerInEmptyMenuBarSpace(_ appState: AppState, _ screen: NSScreen) -> Bool {
+        appState.hidEventManager.isMouseInsideEmptyMenuBarSpace(appState: appState, screen: screen)
+    }
+
+    init(
+        pointerLocation: @escaping @MainActor () -> CGPoint? = { MouseHelpers.locationAppKit },
+        pointerInEmptyMenuBarSpace: @escaping @MainActor (AppState, NSScreen) -> Bool = ThawBarPanel.livePointerInEmptyMenuBarSpace
+    ) {
+        self.pointerLocation = pointerLocation
+        self.pointerInEmptyMenuBarSpace = pointerInEmptyMenuBarSpace
         super.init(
             contentRect: .zero,
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
@@ -244,7 +255,7 @@ final class ThawBarPanel: NSPanel {
         let y = restingY(on: screen)
 
         // Hotkey placement overrides configuration and centers on the pointer in both axes.
-        if hotkeyLocationOverride, let mouse = MouseHelpers.locationAppKit {
+        if hotkeyLocationOverride, let mouse = pointerLocation() {
             let x = (mouse.x - frame.width / 2).clamped(to: fittableXRange(on: screen) ?? screen.frame.minX ... screen.frame.minX)
             let maxOriginY = max(screen.frame.minY, screen.frame.maxY - frame.height)
             return CGPoint(
@@ -256,8 +267,8 @@ final class ThawBarPanel: NSPanel {
         let concrete = Self.concreteLocation(
             for: location,
             pointerInEmptyMenuBarSpace: location == .dynamic
-                && appState.hidEventManager.isMouseInsideEmptyMenuBarSpace(appState: appState, screen: screen),
-            hasPointerLocation: MouseHelpers.locationAppKit != nil,
+                && pointerInEmptyMenuBarSpace(appState, screen),
+            hasPointerLocation: pointerLocation() != nil,
             showsThawIcon: appState.settings.general.showThawIcon
         )
 
@@ -284,7 +295,7 @@ final class ThawBarPanel: NSPanel {
             // Reduced to a concrete location above.
             nil
         case .mousePointer:
-            MouseHelpers.locationAppKit.map { $0.x - frame.width / 2 }
+            pointerLocation().map { $0.x - frame.width / 2 }
         case .thawIcon:
             controlItemAnchorBounds(appState: appState).flatMap { anchor -> CGFloat? in
                 guard Self.isUsableThawIconAnchor(anchor, screenFrame: screen.frame) else {
@@ -345,11 +356,11 @@ final class ThawBarPanel: NSPanel {
         let opensAtPointer = Self.concreteLocation(
             for: location,
             pointerInEmptyMenuBarSpace: location == .dynamic
-                && appState.hidEventManager.isMouseInsideEmptyMenuBarSpace(appState: appState, screen: screen),
-            hasPointerLocation: MouseHelpers.locationAppKit != nil,
+                && pointerInEmptyMenuBarSpace(appState, screen),
+            hasPointerLocation: pointerLocation() != nil,
             showsThawIcon: appState.settings.general.showThawIcon
         ) == .mousePointer
-        openingPointerX = opensAtPointer ? MouseHelpers.locationAppKit?.x : nil
+        openingPointerX = opensAtPointer ? pointerLocation()?.x : nil
 
         let menuBarHeight = screen.getMenuBarHeightEstimate()
         diagLog.notice("""
