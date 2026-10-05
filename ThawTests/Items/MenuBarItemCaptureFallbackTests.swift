@@ -239,6 +239,24 @@ struct MenuBarItemCaptureFallbackTests {
         #expect(await reader.validatedTags.isEmpty)
     }
 
+    @Test("A successful crop reports recovery but leaves the failure ledger to the publisher")
+    func successfulCropDefersTheLedger() async throws {
+        let item = makeItem()
+        let reader = try CaptureFixture(hosting: nil, strip: makeCapture(opaque: true))
+        let cache = MenuBarItemImageCache(screenIsLocked: { false })
+        cache.recordCaptureFailure(for: item)
+        let result = await cache.axBoundsCapture(
+            [(item, item.bounds)], scale: 2, displayID: 42,
+            validateFreshBounds: false, concealedIdentifiers: [], using: reader
+        )
+
+        #expect(result.captured[item.tag] != nil)
+        #expect(result.recoveredItems.map(\.tag) == [item.tag])
+        #expect(cache.failedCapturesLock.withLock { $0[item.tag] } != nil, "A pass that may be discarded cannot forgive strikes")
+        cache.commitCaptureLedger(of: result)
+        #expect(cache.failedCapturesLock.withLock { $0[item.tag] } == nil)
+    }
+
     @Test("A mixed batch keeps the strip glyph and recovers only the unresolved item")
     func mixedBatchKeepsStripGlyph() async throws {
         let hosted = makeItem()

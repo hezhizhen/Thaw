@@ -74,6 +74,27 @@ extension MenuBarItemImageCache {
         )
     }
 
+    /// Why a capture admitted earlier may no longer publish, or nil if it still may.
+    ///
+    /// recapture passes also honour the reset flag and the move cooldown; the
+    /// grouped prewarm reveals items itself and answers only to layout and display.
+    @MainActor
+    private func publicationRejection(
+        of admission: CapturePublicationAdmission,
+        appState: AppState,
+        ignoreRecentMove: Bool,
+        isRecapturePass: Bool = true
+    ) -> CapturePublicationPolicy.Rejection? {
+        CapturePublicationPolicy.rejection(
+            of: admission,
+            layout: appState.itemManager.layoutPublication,
+            displayID: appState.itemManager.itemDisplayID,
+            isResettingLayout: isRecapturePass && appState.itemManager.isResettingLayout,
+            moveWithinCooldown: isRecapturePass && moveActivity?.occurred(within: .seconds(2)) == true,
+            ignoreRecentMove: ignoreRecentMove
+        )
+    }
+
     /// One uncoalesced pass; reach it through recaptureNow(sections:ignoreRecentMove:).
     @MainActor
     private func runRecapturePass(
@@ -115,6 +136,13 @@ extension MenuBarItemImageCache {
 
         let scale = screen.backingScaleFactor
 
+        // Before the first await: what this pass publishes must still describe
+        // the layout it started from. See publicationRejection(of:).
+        let admission = CapturePublicationPolicy.admit(
+            layout: appState.itemManager.layoutPublication,
+            displayID: displayID
+        )
+
         // Concealed macOS 27 sections have only stale snapshot bounds, so crop
         // them only while RuntimeSectionController has actually revealed their live AX
         // elements. Incomplete / off-window crops clear the prior entry so the
@@ -129,6 +157,8 @@ extension MenuBarItemImageCache {
         var newImages = [MenuBarItemTag: MenuBarItemGlyphCapture]()
         var invalidatedTags = Set<MenuBarItemTag>()
         var unconditionallyInvalidatedTags = Set<MenuBarItemTag>()
+        // Strikes and recoveries from every section, applied only if the whole pass publishes.
+        var ledger = CapturePass()
 
         for section in sectionsToCapture {
             guard !Task.isCancelled else {
@@ -150,18 +180,21 @@ extension MenuBarItemImageCache {
 
             // Discard when a move landed (or is still running) while this
             // capture was in flight: the crops were taken from a bar that
-            // is not where it will settle. The test must be != true: != false
+            // is not where it will settle. The cooldown test must be != true: != false
             // would discard every capture taken on a quiet bar and keep the
-            // ones taken mid-move.
-            guard !appState.itemManager.isResettingLayout,
-                  ignoreRecentMove || moveActivity?.occurred(within: .seconds(2)) != true
-            else {
+            // ones taken mid-move. ignoreRecentMove waives only the cooldown
+            // of a move that finished before admission, never a newer one.
+            if let rejection = publicationRejection(
+                of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
+            ) {
                 MenuBarItemImageCache.diagLog.debug(
-                    "recaptureNow: discarding in-flight capture because a move or layout reset is in progress"
+                    "recaptureNow: discarding in-flight capture (\(String(describing: rejection)))"
                 )
                 return false
             }
 
+            ledger.failedCaptureItems += sectionResult.failedCaptureItems
+            ledger.recoveredItems += sectionResult.recoveredItems
             invalidatedTags.formUnion(sectionResult.invalidatedTags)
             unconditionallyInvalidatedTags.formUnion(sectionResult.unconditionallyInvalidatedTags)
 
@@ -177,6 +210,18 @@ extension MenuBarItemImageCache {
 
             newImages.merge(sectionResult.captured) { _, new in new }
         }
+
+        // Validated again with nothing awaited before the ledger is touched, so
+        // a pass a later section's capture outlived cannot strike or forgive.
+        if let rejection = publicationRejection(
+            of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
+        ) {
+            MenuBarItemImageCache.diagLog.debug(
+                "recaptureNow: discarding completed capture (\(String(describing: rejection)))"
+            )
+            return false
+        }
+        commitCaptureLedger(of: ledger)
 
         // Do NOT check Task.isCancelled here: if any captures succeeded (e.g.
         // the prewarm completed its hidden-section AX crop), we must apply them
@@ -200,6 +245,15 @@ extension MenuBarItemImageCache {
 
         return await MainActor.run { [newImages, invalidatedTags, unconditionallyInvalidatedTags, allValidTags, assignedSnapshotTags] in
             guard !skipCaptureWhileScreenLocked("publishing recapture") else { return false }
+            // The hop above can straddle a move; images and invalidations alike go stale with it.
+            if let rejection = publicationRejection(
+                of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
+            ) {
+                MenuBarItemImageCache.diagLog.debug(
+                    "recaptureNow: discarding results at publication (\(String(describing: rejection)))"
+                )
+                return false
+            }
             let beforeCount = capturesByTag.count
             var didChange = false
             // Pre-apply snapshot for the changeless-pass report below.
@@ -768,7 +822,15 @@ extension MenuBarItemImageCache {
         missPolicy: RevealMissPolicy
     ) async {
         guard !items.isEmpty, !Task.isCancelled,
-              !skipCaptureWhileScreenLocked("grouped reveal capture") else { return }
+              !skipCaptureWhileScreenLocked("grouped reveal capture"),
+              let appState else { return }
+
+        // The temporary reveals below never bump the layout revision, so a
+        // change observed against this admission is a real move or display switch.
+        let admission = CapturePublicationPolicy.admit(
+            layout: appState.itemManager.layoutPublication,
+            displayID: appState.itemManager.itemDisplayID
+        )
 
         // Hold the capture service open across every batch, the way the live
         // refresh loop holds it across every tick. Each batch takes a hosting
@@ -836,6 +898,15 @@ extension MenuBarItemImageCache {
             )
 
             guard !skipCaptureWhileScreenLocked("publishing capture batch") else { return }
+            if let rejection = publicationRejection(
+                of: admission, appState: appState, ignoreRecentMove: true, isRecapturePass: false
+            ) {
+                MenuBarItemImageCache.diagLog.debug(
+                    "grouped reveal capture: discarding batch and stopping (\(String(describing: rejection)))"
+                )
+                return
+            }
+            commitCaptureLedger(of: captureResult)
 
             // A cancel, usually the Thaw Bar closing, also drops the strip's capture
             // ticket, so the misses after it say nothing about the items.

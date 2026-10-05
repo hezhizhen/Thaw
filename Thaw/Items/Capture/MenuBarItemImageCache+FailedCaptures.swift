@@ -110,6 +110,18 @@ extension MenuBarItemImageCache {
         }
     }
 
+    /// Applies the strikes and recoveries a pass observed. Call only once the
+    /// pass is cleared to publish, so a discarded capture neither strikes nor
+    /// forgives an item.
+    nonisolated func commitCaptureLedger(of pass: CapturePass) {
+        for item in pass.failedCaptureItems {
+            recordCaptureFailure(for: item)
+        }
+        for item in pass.recoveredItems {
+            recordCaptureSuccess(for: item)
+        }
+    }
+
     func clearCaptureFailures(for items: [MenuBarItem]) {
         failedCapturesLock.withLock { dict in
             for item in items {

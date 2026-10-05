@@ -197,6 +197,13 @@ final class MenuBarItemImageCache: @unchecked Sendable {
         /// Tags dropped even when the prior looks settled. Governable system
         /// extras are excluded: their glyph from before removal is still valid.
         var unconditionallyInvalidatedTags = Set<MenuBarItemTag>()
+
+        /// Crop failures this pass observed, struck against the ledger only
+        /// once the pass is allowed to publish.
+        var failedCaptureItems = [MenuBarItem]()
+
+        /// Items whose crop succeeded, forgiven in the ledger on the same terms.
+        var recoveredItems = [MenuBarItem]()
     }
 
     /// The published cache itself: the most recent crop trusted for each item.

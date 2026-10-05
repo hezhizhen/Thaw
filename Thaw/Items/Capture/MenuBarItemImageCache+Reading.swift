@@ -479,7 +479,7 @@ extension MenuBarItemImageCache {
                     "axBoundsCapture: cropping failed for \(item.logString) " +
                         "rawCropRect=\(mapping.raw) clamped=\(cropRect)"
                 )
-                recordCaptureFailure(for: item)
+                result.failedCaptureItems.append(item)
                 result.unreadable.append(item)
                 continue
             }
@@ -588,7 +588,7 @@ extension MenuBarItemImageCache {
                 continue
             }
 
-            recordCaptureSuccess(for: item)
+            result.recoveredItems.append(item)
             cropRectOwners[cropRect] = item.tag
             result.captured[item.tag] = captured
         }
