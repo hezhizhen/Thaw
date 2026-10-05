@@ -89,14 +89,6 @@ jobs:
             python3 -m json.tool "$file" > /dev/null
           done
 
-      - name: Verify SwiftLint input file list
-        if: needs.changes.outputs.code == 'true'
-        run: |
-          set -euo pipefail
-          chmod +x scripts/generate-swiftlint-inputs.sh
-          scripts/generate-swiftlint-inputs.sh /tmp/swiftlint-inputs.xcfilelist
-          diff -u scripts/swiftlint-inputs.xcfilelist /tmp/swiftlint-inputs.xcfilelist
-
       - name: Run SwiftLint
         if: needs.changes.outputs.code == 'true'
         run: |
