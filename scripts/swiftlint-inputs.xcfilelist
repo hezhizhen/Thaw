@@ -128,6 +128,7 @@ $(SRCROOT)/Thaw/Input/Hotkeys/KeyCombination.swift
 $(SRCROOT)/Thaw/Input/Hotkeys/Modifiers.swift
 $(SRCROOT)/Thaw/Input/Hotkeys/SystemNotificationCenterHotkey.swift
 $(SRCROOT)/Thaw/Items/Capture/CaptureDiagnostics.swift
+$(SRCROOT)/Thaw/Items/Capture/CapturePublicationPolicy.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarCaptureReading.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarItemAlertRevealWatcher.swift
 $(SRCROOT)/Thaw/Items/Capture/MenuBarItemDisplayName.swift
