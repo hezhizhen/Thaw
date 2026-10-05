@@ -595,6 +595,16 @@ extension MenuBarItemImageCache {
         }
     }
 
+    /// Dividers capture as transparent; the visible Thaw icon crops from the
+    /// display strip like any Liquid Glass item, except while it is hidden and
+    /// collapsed to a sliver that draws nothing. The recording indicator is
+    /// excluded because capturing it shows it, which triggers a recapture.
+    static nonisolated func isCapturable(_ item: MenuBarItem) -> Bool {
+        (!item.isControlItem || (item.tag == .visibleControlItem && item.bounds.width > 2))
+            && !item.isTransientControlCenterItem
+            && !item.tag.isCaptureActivityIndicator
+    }
+
     @concurrent
     nonisolated func captureImages(
         of items: [MenuBarItem],
@@ -605,14 +615,7 @@ extension MenuBarItemImageCache {
         forgivenTags: Set<MenuBarItemTag> = [],
         geometryOwners: Set<pid_t> = []
     ) async -> CapturePass {
-        // Dividers capture as transparent; the visible Thaw icon crops from the
-        // display strip like any Liquid Glass item. The recording indicator is
-        // excluded because capturing it shows it, which triggers a recapture.
-        let capturable = items.filter {
-            (!$0.isControlItem || $0.tag == .visibleControlItem)
-                && !$0.isTransientControlCenterItem
-                && !$0.tag.isCaptureActivityIndicator
-        }
+        let capturable = items.filter(Self.isCapturable)
 
         // A bar mid-reflow draws items scaled down and faded. Bounded so a
         // flag that never clears cannot starve capture.
