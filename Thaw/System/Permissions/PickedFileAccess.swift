@@ -39,11 +39,14 @@ final class PickedFileAccess {
     private let bookmarkKey: String
     private let title: String
     private let message: String
+    /// Where the bookmark is kept. Tests pass a scratch suite.
+    private let defaults: UserDefaults
     private var scopedURL: URL?
     private let diagLog = DiagLog(category: "PickedFileAccess")
 
-    init(fileURL: URL, bookmarkKey: String, title: String, message: String) {
+    init(fileURL: URL, bookmarkKey: String, title: String, message: String, defaults: UserDefaults = .standard) {
         self.fileURL = fileURL
+        self.defaults = defaults
         self.bookmarkKey = bookmarkKey
         self.title = title
         self.message = message
@@ -58,7 +61,7 @@ final class PickedFileAccess {
 
     /// Recovery requires its own read/write grant, not an older read-only one.
     var hasReadWriteAccess: Bool {
-        guard hasAccess, UserDefaults.standard.data(forKey: bookmarkKey) != nil else { return false }
+        guard hasAccess, defaults.data(forKey: bookmarkKey) != nil else { return false }
         do {
             let handle = try FileHandle(forWritingTo: fileURL)
             try handle.close()
@@ -70,7 +73,7 @@ final class PickedFileAccess {
 
     /// Resolves the stored bookmark and takes its scope, once.
     func activateIfNeeded() {
-        guard scopedURL == nil, let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return }
+        guard scopedURL == nil, let data = defaults.data(forKey: bookmarkKey) else { return }
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: data,
@@ -78,7 +81,7 @@ final class PickedFileAccess {
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {
-            UserDefaults.standard.removeObject(forKey: bookmarkKey)
+            defaults.removeObject(forKey: bookmarkKey)
             return
         }
         if url.startAccessingSecurityScopedResource() {
@@ -120,7 +123,7 @@ final class PickedFileAccess {
         let data = (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
             ?? (try? url.bookmarkData(includingResourceValuesForKeys: nil, relativeTo: nil))
         if let data {
-            UserDefaults.standard.set(data, forKey: bookmarkKey)
+            defaults.set(data, forKey: bookmarkKey)
         }
     }
 }

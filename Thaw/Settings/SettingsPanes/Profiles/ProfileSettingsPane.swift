@@ -291,7 +291,9 @@ struct ProfileSettingsPane: View {
 
         // Warn only if applying the profile's display spacing would relaunch apps.
         let offset = Int(profile.globalDisplayConfiguration.itemSpacingOffset.rounded())
-        if appState.spacingManager.willRelaunch(forOffset: offset) {
+        // The profile's own mode is the one in effect by the time its spacing is applied.
+        let applyMode = profile.spacingApplyMode ?? appState.settings.displaySettings.spacingApplyMode
+        if applyMode == .relaunchApps, !appState.spacingManager.isOnDisk(offset: offset) {
             diff.relaunchingSpacingOffset = offset
         }
         return diff

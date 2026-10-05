@@ -191,6 +191,7 @@ nonisolated enum Defaults {
             // Display Settings
             .confirmSpacingRelaunch: DefaultValue.confirmSpacingRelaunch,
             .unconfirmedSpacingProfileScope: DefaultValue.unconfirmedSpacingProfileScope.rawValue,
+            .spacingApplyMode: DefaultValue.spacingApplyMode.rawValue,
 
             // Event Delivery
             .axMessagingTimeout: DefaultValue.axMessagingTimeout,
@@ -337,6 +338,7 @@ extension Defaults {
         static let globalDisplayConfiguration: DisplayThawBarConfiguration = .defaultConfiguration
         static let confirmSpacingRelaunch = true
         static let unconfirmedSpacingProfileScope: SpacingProfileSaveScope = .activeProfile
+        static let spacingApplyMode: SpacingApplyMode = .relaunchApps
 
         // MARK: Event Delivery
 
@@ -413,6 +415,7 @@ extension Defaults {
         case knownDisplays = "KnownDisplays"
         case confirmSpacingRelaunch = "ConfirmSpacingRelaunch"
         case unconfirmedSpacingProfileScope = "UnconfirmedSpacingProfileScope"
+        case spacingApplyMode = "SpacingApplyMode"
 
         // MARK: Hotkeys Settings
 

@@ -694,6 +694,29 @@ private struct LayoutSuggestionCards: View {
                 onDismiss: { dismiss(.itemsBehindNotch) }
             )
         }
+        if littleSnitchItemIsMissing, !LayoutSuggestionDismissal.isQuiet(.littleSnitchScriptingAccess) {
+            ThawFirstRunHint(
+                systemImage: "exclamationmark.triangle",
+                "Little Snitch is running, but \(Constants.displayName) can’t see its menu bar icon. In Little Snitch’s settings, under Security, turn on “Allow GUI Scripting access to Little Snitch.”",
+                actionTitle: "Open Little Snitch",
+                action: openLittleSnitch,
+                onDismiss: { dismiss(.littleSnitchScriptingAccess) }
+            )
+        }
+    }
+
+    private var littleSnitchItemIsMissing: Bool {
+        LayoutSuggestions.littleSnitchItemIsMissing(
+            runningBundleIDs: Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)),
+            items: itemManager.managedItems
+        )
+    }
+
+    private func openLittleSnitch() {
+        guard let url = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: LayoutSuggestions.littleSnitchAppBundleID
+        ) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     private func dismiss(_ kind: LayoutSuggestionDismissal.Kind) {

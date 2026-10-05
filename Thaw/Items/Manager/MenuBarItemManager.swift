@@ -667,16 +667,19 @@ final class MenuBarItemManager {
     /// cache pass. A new apply or an explicit user Command-drag clears it.
     var suppressSpatialOrderPersistenceAfterFailedApply = false
 
-    /// Whether the person using Thaw has taken arrangement into their own
-    /// hands (MenuBarArrangementMode.manual).
-    ///
-    /// In manual mode Thaw performs no moves and writes no preferred
-    /// positions: the order in the bar is whatever the user ⌘-dragged it to.
-    /// Hiding and revealing are untouched, they change what is on screen,
-    /// not where it sits. Read on the move and order-application paths, which
-    /// are the only two places that can disturb the bar's arrangement.
+    /// Whether the user has taken menu bar arrangement into their own hands (MenuBarArrangementMode.manual).
+    /// Every automatic path reads this; the explicit Layout edit path reads arrangementForbidsMoves instead.
     var arrangementIsManual: Bool {
         appState?.settings.advanced.menuBarArrangementMode == .manual
+    }
+
+    /// Whether Manual refuses a move asked for by the current task: all but an explicit Layout edit.
+    /// Only the guards a Layout drop, keyboard move, or sort passes through read this.
+    var arrangementForbidsMoves: Bool {
+        ExplicitLayoutEdit.manualArrangementForbidsMoves(
+            arrangementIsManual: arrangementIsManual,
+            isExplicitLayoutEdit: ExplicitLayoutEdit.isActive
+        )
     }
 
     /// Cached domain-access probe. The probe is a cheap open(), but it sits
@@ -944,9 +947,10 @@ final class MenuBarItemManager {
     /// Concealed sections wait for reveal; completed single-item drops never
     /// call this. Recording and physical application must remain separate.
     func scheduleSectionOrderApply(for section: MenuBarSection.Name) {
-        // Manual arrangement refuses every move; an apply pass here would only
-        // burn the convergence budget and log a failure for a state change.
-        guard !arrangementIsManual else { return }
+        // Manual arrangement refuses every apply but an explicit Layout edit's;
+        // any other pass would only burn the convergence budget and log a failure.
+        guard !arrangementForbidsMoves else { return }
+        writeConcealedOrderForManualEdit(in: section)
         let identifiers = savedSectionOrder[sectionKey(for: section)] ?? []
         if section == .visible, !identifiers.isEmpty {
             authoredVisibleOrderPendingPhysicalApply = true

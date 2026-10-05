@@ -627,6 +627,23 @@ extension MenuBarItemManager {
         resolveSourcePID: Bool = true,
         skipSavedLayoutApply: Bool = false
     ) async {
+        // A cache pass is automatic work even when a Layout edit awaits it, so it never carries the edit's mark.
+        await ExplicitLayoutEdit.$isActive.withValue(false) {
+            await cacheItemsOutsideLayoutEdit(
+                currentItemWindowIDs,
+                skipRecentMoveCheck: skipRecentMoveCheck,
+                resolveSourcePID: resolveSourcePID,
+                skipSavedLayoutApply: skipSavedLayoutApply
+            )
+        }
+    }
+
+    private func cacheItemsOutsideLayoutEdit(
+        _ currentItemWindowIDs: [CGWindowID]?,
+        skipRecentMoveCheck: Bool,
+        resolveSourcePID: Bool,
+        skipSavedLayoutApply: Bool
+    ) async {
         MenuBarItemManager.diagLog.debug(
             "cacheItemsRegardless: entering (skipRecentMoveCheck=\(skipRecentMoveCheck), hasCurrentItemWindowIDs=\(currentItemWindowIDs != nil), resolveSourcePID=\(resolveSourcePID), skipSavedLayoutApply=\(skipSavedLayoutApply))"
         )

@@ -18,6 +18,17 @@ enum SettingsURIHandler {
     /// Tests use a private center so fixture writes cannot reach the running app's settings models.
     static var settingsChangeNotificationCenter = NotificationCenter.default
 
+    /// Tests swap these so a response never opens a URL or reaches another process.
+    static var openCallbackURL: (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    static var postBroadcastJSON: (String) -> Void = { json in
+        DistributedNotificationCenter.default().postNotificationName(
+            .settingsURIGetResponse,
+            object: nil,
+            userInfo: ["json": json],
+            deliverImmediately: true
+        )
+    }
+
     /// Keep global allow-lists, Defaults.Key mappings, and bounds together to prevent drift.
     /// Per-display settings live in DisplaySettingsManager and perDisplayKeys instead.
     struct SettingURIEntry {
@@ -147,12 +158,17 @@ enum SettingsURIHandler {
 
     /// Whether the installed app with this bundle ID is a built-in trusted sender.
     /// Such a sender also works while the Settings URI feature is switched off.
-    static func isBuiltInTrustedSender(bundleIdentifier: String?) -> Bool {
+    /// The team lookups are parameters so the rule can be tested without a signed build.
+    static func isBuiltInTrustedSender(
+        bundleIdentifier: String?,
+        senderTeamID: (String) -> String? = { getTeamIdentifier(for: $0) },
+        ownTeamID: () -> String? = { teamIdentifier(ofAppAt: Bundle.main.bundleURL, logName: "this app") }
+    ) -> Bool {
         guard let bundleIdentifier, builtInTrustedBundleIDs.contains(bundleIdentifier) else { return false }
         return isBuiltInTrusted(
             bundleId: bundleIdentifier,
-            senderTeamID: getTeamIdentifier(for: bundleIdentifier),
-            ownTeamID: teamIdentifier(ofAppAt: Bundle.main.bundleURL, logName: "this app")
+            senderTeamID: senderTeamID(bundleIdentifier),
+            ownTeamID: ownTeamID()
         )
     }
 
@@ -166,7 +182,7 @@ enum SettingsURIHandler {
     }
 
     /// The team identifier in the code signature of the app at appURL.
-    private static func teamIdentifier(ofAppAt appURL: URL, logName bundleId: String) -> String? {
+    static func teamIdentifier(ofAppAt appURL: URL, logName bundleId: String) -> String? {
         var staticCode: SecStaticCode?
         let createStatus = SecStaticCodeCreateWithPath(appURL as CFURL, [], &staticCode)
         guard createStatus == errSecSuccess, let code = staticCode else {
@@ -221,13 +237,16 @@ enum SettingsURIHandler {
     }
 
     /// Checks if the sender is in the whitelist and has valid code signature.
-    static func isWhitelisted(bundleIdentifier: String?) -> Bool {
+    static func isWhitelisted(
+        bundleIdentifier: String?,
+        builtInTrust: (String) -> Bool = { isBuiltInTrustedSender(bundleIdentifier: $0) }
+    ) -> Bool {
         guard let bundleId = bundleIdentifier, !bundleId.isEmpty else {
             diagLog.warning("Settings URI: No sender bundle ID provided")
             return false
         }
 
-        if isBuiltInTrustedSender(bundleIdentifier: bundleId) {
+        if builtInTrust(bundleId) {
             diagLog.debug("Settings URI: Authorized built-in request from \(bundleId)")
             return true
         }
@@ -1144,7 +1163,7 @@ enum SettingsURIHandler {
             return false
         }
 
-        let success = NSWorkspace.shared.open(callbackURL)
+        let success = openCallbackURL(callbackURL)
         if success {
             diagLog.info("Settings URI Get: Sent callback via scheme: \(scheme)")
         } else {
@@ -1162,12 +1181,7 @@ enum SettingsURIHandler {
             return false
         }
 
-        DistributedNotificationCenter.default().postNotificationName(
-            .settingsURIGetResponse,
-            object: nil,
-            userInfo: ["json": jsonString],
-            deliverImmediately: true
-        )
+        postBroadcastJSON(jsonString)
 
         diagLog.info("Settings URI Get: Broadcasted response via distributed notification")
         return true

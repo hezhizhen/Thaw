@@ -190,6 +190,24 @@ struct AppRunningTriggersTests {
         }
     }
 
+    @Test("Started without a snapshot source, the manager reads the apps that are really running")
+    func defaultSnapshotReadsRunningApplications() throws {
+        let ownBundle = try #require(Bundle.main.bundleIdentifier)
+        try withManager { manager, _ in
+            manager.save(rule(app: ownBundle, target: "test.helper:Running"))
+            manager.save(rule(app: "com.example.thawtests.\(UUID().uuidString)", target: "test.helper:Absent"))
+            var events: [String] = []
+
+            manager.start(
+                notificationCenter: NotificationCenter(),
+                reveal: { events.append("+\($0)") },
+                release: { events.append("-\($0)") }
+            )
+
+            #expect(events == ["+test.helper:Running"], "This process is running; the made-up app is not")
+        }
+    }
+
     @Test("Workspace launch and quit notifications drive updates without polling")
     func notifications() async throws {
         let suite = "AppRunningTriggersTests.\(UUID().uuidString)"

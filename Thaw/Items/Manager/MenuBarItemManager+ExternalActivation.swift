@@ -47,10 +47,23 @@ extension MenuBarItemManager {
         on displayID: CGDirectDisplayID? = nil
     ) async -> MenuBarItemActivationOutcome {
         guard let appState else { return .activationFailed }
+        return await activateItem(
+            withIdentifier: identifier,
+            hasAccessibilityPermission: appState.permissions.accessibility.hasPermission
+        ) { item in
+            await self.activate(item: item, on: displayID ?? NSScreen.screenWithActiveMenuBar?.displayID)
+        }
+    }
 
+    /// The decision around the press, with the permission and the press supplied by the caller.
+    func activateItem(
+        withIdentifier identifier: String,
+        hasAccessibilityPermission: Bool,
+        press: (MenuBarItem) async -> MenuBarItemActivationOutcome
+    ) async -> MenuBarItemActivationOutcome {
         let item = externallyActionableItem(withIdentifier: identifier)
         if let decided = Self.activationPreflight(
-            hasAccessibilityPermission: appState.permissions.accessibility.hasPermission,
+            hasAccessibilityPermission: hasAccessibilityPermission,
             itemIsLive: item != nil
         ) {
             MenuBarItemManager.diagLog.info("Cannot activate item \(identifier): \(decided)")
@@ -58,6 +71,6 @@ extension MenuBarItemManager {
         }
         guard let item else { return .itemUnavailable }
 
-        return await activate(item: item, on: displayID ?? NSScreen.screenWithActiveMenuBar?.displayID)
+        return await press(item)
     }
 }

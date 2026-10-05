@@ -151,10 +151,7 @@ struct FoldedMenuBar: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .accessibilityLabel("Sort \(section.displayString) items")
-        .help(itemManager.arrangementIsManual
-            ? "Switch from Manual to sort items."
-            : "Sort this section by name. Groups stay together.")
-        .disabled(itemManager.arrangementIsManual)
+        .help("Sort this section by name. Groups stay together.")
     }
 
     private func noteDragTarget(_ note: Notification, for section: MenuBarSection.Name) {

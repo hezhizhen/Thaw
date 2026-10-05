@@ -23,6 +23,7 @@ extension MigrationManager {
     /// Runs every outstanding migration and logs whatever each one reported.
     func migrateAll() {
         removeMenuBarHistory(from: Defaults.store)
+        removeAXBridgeLogs()
         let results = [
             migratePerDisplayThawBar(),
         ]
@@ -39,6 +40,21 @@ extension MigrationManager {
         defaults.removeObject(forKey: "EnableBarHygieneAudit")
         defaults.removeObject(forKey: "MenuBarHygieneLedger")
         defaults.removeObject(forKey: "LayoutSuggestions.dismissed.unusedItems")
+    }
+}
+
+// MARK: - Remove Retired AX Bridge Logs
+
+extension MigrationManager {
+    /// The AX bridge breadcrumb log is gone; nothing else would ever delete the files it left.
+    func removeAXBridgeLogs(
+        in directory: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Thaw", isDirectory: true)
+    ) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.lastPathComponent.hasPrefix("ax-bridge-") && file.pathExtension == "txt" {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }
 

@@ -38,8 +38,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         #endif
 
-        AXBatchDiagnostics.handler = { AXBridgeDiagnostics.record($0) }
-
         // Set AX timeout before creating elements: synchronous IPC can stall when a target stops pumping events.
         // Override with defaults write com.stonerl.Thaw axMessagingTimeout -float <seconds>.
         UIElement.defaultMessagingTimeout = Float(

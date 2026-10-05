@@ -418,6 +418,8 @@ final class MenuBarOverlayPanel: NSPanel {
     }
 
     private func refreshSystemMenuBarPresence() {
+        // Entering or leaving a fullscreen Space changes which level keeps the panel under the items.
+        updateWindowLevel()
         let absent = Self.isSystemMenuBarHidden(on: owningScreen)
         guard absent != isSystemMenuBarAbsent else { return }
         isSystemMenuBarAbsent = absent
@@ -510,11 +512,29 @@ final class MenuBarOverlayPanel: NSPanel {
     private func updateWindowLevel() {
         guard let appState else { return }
         let config = appState.appearanceManager.effectiveConfiguration
-        if config.current.tintKind != .noTint || config.shapeKind != .noShape || config.current.backgroundKind != .none {
-            level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) - 1)
-        } else {
-            level = .statusBar
+        let hasAppearance = config.current.tintKind != .noTint
+            || config.shapeKind != .noShape
+            || config.current.backgroundKind != .none
+        let newLevel = Self.overlayLevel(
+            hasAppearance: hasAppearance,
+            isFullscreenSpace: Self.isFullscreenSpace(on: owningScreen)
+        )
+        if level != newLevel {
+            level = newLevel
         }
+    }
+
+    private static func isFullscreenSpace(on screen: NSScreen) -> Bool {
+        guard let spaceID = Bridging.getCurrentSpaceID(for: screen.displayID) else { return false }
+        return Bridging.isSpaceFullscreen(spaceID)
+    }
+
+    /// The level that keeps an appearance under the menu bar's items.
+    /// A fullscreen Space draws its bar at the main-menu level, where an equal-level panel ordered front covers the items.
+    static nonisolated func overlayLevel(hasAppearance: Bool, isFullscreenSpace: Bool) -> NSWindow.Level {
+        guard hasAppearance else { return .statusBar }
+        let key: CGWindowLevelKey = isFullscreenSpace ? .mainMenuWindow : .statusWindow
+        return NSWindow.Level(rawValue: Int(CGWindowLevelForKey(key)) - 1)
     }
 
     override func isAccessibilityElement() -> Bool {

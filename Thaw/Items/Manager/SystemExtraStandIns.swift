@@ -86,7 +86,11 @@ enum ExtraVisibilityChannel {
     }
 
     static var file: URL {
-        ItemStandInSlot.folder.appending(path: "hidden-extras.txt")
+        file(in: ItemStandInSlot.folder)
+    }
+
+    static func file(in folder: URL) -> URL {
+        folder.appending(path: "hidden-extras.txt")
     }
 
     static var notification: Notification.Name {
@@ -94,22 +98,31 @@ enum ExtraVisibilityChannel {
     }
 
     static func hide(_ bundleIDs: Set<String>) {
+        hide(bundleIDs, folder: ItemStandInSlot.folder, announce: announceChange)
+    }
+
+    /// The folder and the announcement are parameters so tests write to a scratch folder and post nothing.
+    static func hide(_ bundleIDs: Set<String>, folder: URL, announce: () -> Void) {
         guard bundleIDs != lastHidden else { return }
         do {
-            try FileManager.default.createDirectory(at: ItemStandInSlot.folder, withIntermediateDirectories: true)
-            try bundleIDs.sorted().joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try bundleIDs.sorted().joined(separator: "\n").write(to: file(in: folder), atomically: true, encoding: .utf8)
         } catch {
             log.error("could not write hidden extras: \(error.localizedDescription)")
             return
         }
         lastHidden = bundleIDs
+        announce()
+        log.info("hidden extras: \(bundleIDs.sorted())")
+    }
+
+    private static func announceChange() {
         DistributedNotificationCenter.default().postNotificationName(
             notification,
             object: nil,
             userInfo: nil,
             deliverImmediately: true
         )
-        log.info("hidden extras: \(bundleIDs.sorted())")
     }
 }
 

@@ -92,4 +92,51 @@ struct ThawBarBackgroundSampleTests {
         )
         #expect(ink == (isLight ? Color.black : Color.white))
     }
+
+    /// The ink over a white sample for one glass layer, background or tint.
+    private func inkOverWhite(
+        asTint: Bool,
+        style: MenuBarGlassStyle,
+        colored: Bool,
+        color: NSColor = .black
+    ) -> Color {
+        var configuration = MenuBarAppearanceConfigurationV2.defaultConfiguration
+        configuration.thawBarAppearance.overridesMenuBar = true
+        configuration.thawBarAppearance.backgroundKind = asTint ? .none : .glass
+        configuration.thawBarAppearance.tintKind = asTint ? .glass : .noTint
+        configuration.thawBarAppearance.backgroundGlassStyle = style
+        configuration.thawBarAppearance.tintGlassStyle = style
+        configuration.thawBarAppearance.backgroundGlassIsColored = colored
+        configuration.thawBarAppearance.tintGlassIsColored = colored
+        configuration.thawBarAppearance.backgroundColor = color.cgColor
+        configuration.thawBarAppearance.tintColor = color.cgColor
+        configuration.thawBarAppearance.backgroundOpacity = 1
+        configuration.thawBarAppearance.tintOpacity = 1
+        return ThawBarAppearanceForeground.resolve(
+            appearance: configuration.resolvedThawBarAppearance,
+            sampledInfo: MenuBarAverageColorInfo(color: NSColor.white.cgColor, source: .menuBarWindow),
+            adaptiveInfo: nil,
+            palette: nil,
+            screen: nil
+        )
+    }
+
+    @Test("Plain glass leaves the ink to the sample beneath it, colored or not", arguments: [
+        (false, MenuBarGlassStyle.regular, false), (false, .clear, true), (false, .liquid, false),
+        (true, .regular, true), (true, .clear, false), (true, .liquid, false),
+    ])
+    func plainGlassKeepsTheSampleInk(asTint: Bool, style: MenuBarGlassStyle, colored: Bool) {
+        #expect(inkOverWhite(asTint: asTint, style: style, colored: colored) == .black)
+    }
+
+    @Test("Dynamic glass darkens the bar enough to flip the ink to white", arguments: [false, true])
+    func dynamicGlassFadeFlipsTheInk(asTint: Bool) {
+        #expect(inkOverWhite(asTint: asTint, style: .dynamic, colored: false) == .white)
+    }
+
+    @Test("Colored Liquid Glass washes at reduced strength: black over white still reads as light", arguments: [false, true])
+    func coloredLiquidGlassIsAPartialWash(asTint: Bool) {
+        #expect(inkOverWhite(asTint: asTint, style: .liquid, colored: true) == .black)
+        #expect(inkOverWhite(asTint: asTint, style: .dynamic, colored: true) == .white, "The wash and the fade add up")
+    }
 }

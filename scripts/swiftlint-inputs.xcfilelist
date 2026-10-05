@@ -156,6 +156,7 @@ $(SRCROOT)/Thaw/Items/Layout/SyntheticMoveEngine.swift
 $(SRCROOT)/Thaw/Items/Layout/SyntheticMoveVerification.swift
 $(SRCROOT)/Thaw/Items/Layout/ThawLayoutExports.swift
 $(SRCROOT)/Thaw/Items/Manager/BoundaryRepairPass.swift
+$(SRCROOT)/Thaw/Items/Manager/ExplicitLayoutEdit.swift
 $(SRCROOT)/Thaw/Items/Manager/ItemStandInSlots.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemIconChoices.swift
 $(SRCROOT)/Thaw/Items/Manager/MenuBarItemManager+AlphabeticalOrder.swift
@@ -206,6 +207,7 @@ $(SRCROOT)/Thaw/Items/Spacers/OverflowSpacer.swift
 $(SRCROOT)/Thaw/Items/Spacers/ThawBarOnlyProxies.swift
 $(SRCROOT)/Thaw/Items/Spacing/MenuBarItemSpacingError.swift
 $(SRCROOT)/Thaw/Items/Spacing/MenuBarItemSpacingManager.swift
+$(SRCROOT)/Thaw/Items/Spacing/SpacingApplyMode.swift
 $(SRCROOT)/Thaw/Items/Support/LayoutSuggestions.swift
 $(SRCROOT)/Thaw/Items/Support/SimpleSemaphore.swift
 $(SRCROOT)/Thaw/Items/Support/UnseenMenuBarHosts.swift
@@ -416,7 +418,6 @@ $(SRCROOT)/Thaw/Settings/SettingsView.swift
 $(SRCROOT)/Thaw/Settings/SettingsWindow.swift
 $(SRCROOT)/Thaw/Settings/UpdateConsentSheet.swift
 $(SRCROOT)/Thaw/Settings/WhatsNewWindow.swift
-$(SRCROOT)/Thaw/System/AXBridgeDiagnostics.swift
 $(SRCROOT)/Thaw/System/AppearanceSharing.swift
 $(SRCROOT)/Thaw/System/ApplicationTermination.swift
 $(SRCROOT)/Thaw/System/ConflictingAppDetector.swift

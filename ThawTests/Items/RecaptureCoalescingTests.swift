@@ -181,6 +181,48 @@ struct RecaptureCoalescingTests {
         #expect(probe.demands == [demand])
     }
 
+    @Test("Requests that arrive before the pass starts are folded into that one pass")
+    func requestsBeforeTheStartShareOnePass() async {
+        let coalescer = RecaptureCoalescer()
+        let probe = PassProbe()
+        let first = Task { await probe.run(Demand(sections: [.hidden], ignoreRecentMove: false), on: coalescer) }
+        let second = Task { await probe.run(Demand(sections: [.visible], ignoreRecentMove: true), on: coalescer) }
+        await probe.waitForPasses(1)
+        await settle()
+        probe.finishPass(returning: true)
+
+        #expect(await first.value)
+        #expect(await second.value)
+        #expect(probe.demands == [Demand(sections: [.visible, .hidden], ignoreRecentMove: true)])
+    }
+
+    @Test("A follow-up whose only caller gave up never runs, and frees its slot")
+    func abandonedFollowUpNeverRuns() async {
+        let coalescer = RecaptureCoalescer()
+        let probe = PassProbe()
+        let live = Demand(sections: [.visible], ignoreRecentMove: false)
+        let first = Task { await probe.run(live, on: coalescer) }
+        await probe.waitForPasses(1)
+        let forced = Task { await probe.run(Demand(sections: [.visible], ignoreRecentMove: true), on: coalescer) }
+        await settle()
+
+        forced.cancel()
+        await settle()
+        probe.finishPass(returning: true)
+        #expect(await first.value)
+        #expect(await forced.value == false)
+        await settle()
+        #expect(probe.demands == [live], "A pass nobody waits for must not capture")
+        #expect(probe.cancelledPasses == 0, "Giving up on the follow-up must not cancel the running pass")
+
+        let next = Demand(sections: [.hidden], ignoreRecentMove: false)
+        let later = Task { await probe.run(next, on: coalescer) }
+        await probe.waitForPasses(2)
+        probe.finishPass(returning: true)
+        #expect(await later.value)
+        #expect(probe.demands == [live, next])
+    }
+
     @Test("A caller cancelled before it asks starts nothing")
     func cancelledCallerStartsNothing() async {
         let coalescer = RecaptureCoalescer()

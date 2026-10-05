@@ -32,6 +32,32 @@ struct LayoutSuggestionsTests {
         let result = LayoutSuggestions.itemsBehindNotch([under, beside], notchRects: [notch])
         #expect(result.map(\.title) == ["Under"])
     }
+
+    private func littleSnitchItem() -> MenuBarItem {
+        MenuBarItem(
+            tag: MenuBarItemTag(namespace: .string(LayoutSuggestions.littleSnitchAgentBundleID), title: "Item-0"),
+            windowID: 2,
+            ownerPID: 200,
+            sourcePID: 200,
+            bounds: CGRect(x: 200, y: 0, width: 24, height: 24),
+            title: "Item-0",
+            isOnScreen: true
+        )
+    }
+
+    @Test("Little Snitch running without an enumerated item is reported")
+    func reportsMissingLittleSnitchItem() {
+        let running: Set = [LayoutSuggestions.littleSnitchAgentBundleID, "com.example.Other"]
+        #expect(LayoutSuggestions.littleSnitchItemIsMissing(runningBundleIDs: running, items: [item("Other")]))
+    }
+
+    @Test("Nothing is reported when its item is enumerated, when it is not running, or before any item is known")
+    func staysQuietOtherwise() {
+        let running: Set = [LayoutSuggestions.littleSnitchAgentBundleID]
+        #expect(!LayoutSuggestions.littleSnitchItemIsMissing(runningBundleIDs: running, items: [item("Other"), littleSnitchItem()]))
+        #expect(!LayoutSuggestions.littleSnitchItemIsMissing(runningBundleIDs: ["com.example.Other"], items: [item("Other")]))
+        #expect(!LayoutSuggestions.littleSnitchItemIsMissing(runningBundleIDs: running, items: []))
+    }
 }
 
 @MainActor

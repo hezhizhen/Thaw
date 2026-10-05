@@ -46,6 +46,11 @@ public enum LayoutChangeReason: Sendable, Hashable {
         }
     }
 
+    /// Whether the pass may move items under Manual arrangement, where only the user's own Layout edit does.
+    public var permitsMoveInManualArrangement: Bool {
+        self == .userReorder
+    }
+
     /// Whether the pass may only write preferred positions. Nobody asked for
     /// this pass, so it never drags an item or takes the pointer.
     public var isPositionWriteOnly: Bool {

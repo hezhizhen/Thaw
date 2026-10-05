@@ -29,6 +29,7 @@ and the Sparkle appcast, unless overridden with the `release_notes` input.
 - With “Thaw Bar own look” off, the bar uses the shared background sample for its display instead of a narrow wallpaper slice that could turn the bar gray and its icons black.
 - Showing Live Activities and the camera indicator prevents conflicting assertion-based hiding of Clock, Control Center, and Siri.
 - Release notes and Credits use the same body and heading text styles as Settings instead of a separate oversized type scale.
+- Displays has “When applying spacing” again. With “Wait until next restart,” Thaw saves the spacing without relaunching apps or asking to apply it, and apps pick it up when they next start (#1230).
 
 ### Changed
 

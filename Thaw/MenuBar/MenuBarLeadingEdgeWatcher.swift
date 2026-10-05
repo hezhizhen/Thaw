@@ -39,7 +39,7 @@ final class MenuBarLeadingEdgeWatcher {
     /// How long fast polling lasts after the last sign of change; a reflow lands in several steps.
     nonisolated static let fastPollWindow = Duration.seconds(2)
 
-    @ObservationIgnored private var fastPollUntil: ContinuousClock.Instant?
+    @ObservationIgnored private(set) var fastPollUntil: ContinuousClock.Instant?
 
     /// The wait before the next poll: fast inside the window after a change, idle otherwise.
     static nonisolated func pollInterval(

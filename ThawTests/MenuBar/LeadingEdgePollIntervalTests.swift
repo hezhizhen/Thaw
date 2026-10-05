@@ -29,4 +29,24 @@ struct LeadingEdgePollIntervalTests {
         let interval = MenuBarLeadingEdgeWatcher.pollInterval(now: now, fastUntil: now - .milliseconds(1))
         #expect(interval == MenuBarLeadingEdgeWatcher.pollInterval)
     }
+
+    @MainActor
+    @Test("Expecting a change opens the fast window, and expecting another extends it")
+    func expectChangeOpensAndExtendsTheWindow() throws {
+        let watcher = MenuBarLeadingEdgeWatcher()
+        #expect(watcher.fastPollUntil == nil, "A watcher nobody warned polls at the idle interval")
+
+        let before = ContinuousClock.now
+        watcher.expectChange()
+        let after = ContinuousClock.now
+        let first = try #require(watcher.fastPollUntil)
+        #expect(first >= before + MenuBarLeadingEdgeWatcher.fastPollWindow)
+        #expect(first <= after + MenuBarLeadingEdgeWatcher.fastPollWindow)
+        #expect(MenuBarLeadingEdgeWatcher.pollInterval(now: after, fastUntil: first) == MenuBarLeadingEdgeWatcher.fastPollInterval)
+
+        watcher.expectChange()
+        let second = try #require(watcher.fastPollUntil)
+        #expect(second >= first, "A later sign of change must never shorten the window")
+        #expect(watcher.leadingEdge == nil, "Expecting a change is not itself a reading")
+    }
 }

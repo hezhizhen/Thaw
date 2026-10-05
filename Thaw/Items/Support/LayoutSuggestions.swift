@@ -19,6 +19,19 @@ nonisolated enum LayoutSuggestions {
         }
     }
 
+    /// Little Snitch's menu bar agent. Its icon is only enumerable while Little Snitch allows GUI scripting.
+    static let littleSnitchAgentBundleID = "at.obdev.littlesnitch.agent"
+
+    /// The app whose settings hold the GUI Scripting switch.
+    static let littleSnitchAppBundleID = "at.obdev.littlesnitch"
+
+    /// Whether Little Snitch is running while none of its items was enumerated.
+    /// An empty inventory proves nothing, so it never reports.
+    static func littleSnitchItemIsMissing(runningBundleIDs: Set<String>, items: [MenuBarItem]) -> Bool {
+        guard runningBundleIDs.contains(littleSnitchAgentBundleID), !items.isEmpty else { return false }
+        return !items.contains { "\($0.tag.namespace)" == littleSnitchAgentBundleID }
+    }
+
     /// A short, locale-formatted list of names, with "and N more" past three.
     @MainActor
     static func names(of items: [MenuBarItem]) -> String {
@@ -39,6 +52,7 @@ nonisolated enum LayoutSuggestions {
 enum LayoutSuggestionDismissal {
     enum Kind: String {
         case itemsBehindNotch
+        case littleSnitchScriptingAccess
     }
 
     /// How long a dismissal holds.
