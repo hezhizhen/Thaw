@@ -40,13 +40,14 @@ struct OverflowOrderPersistenceTests {
         )
     }
 
-    private static func visibleProjection(
+    /// The same authored state the live section controller would supply.
+    private static func source(
         order: [String],
         assignment: [String: MenuBarSectionName] = [:]
-    ) -> MenuBarItemManager.AuthoredLayoutProjection {
-        MenuBarItemManager.AuthoredLayoutProjection(
+    ) -> MenuBarItemManager.AuthoredLayoutSource {
+        MenuBarItemManager.AuthoredLayoutSource(
             sectionAssignment: assignment,
-            sectionOrder: [.visible: order]
+            sectionItemOrder: [.visible: order]
         )
     }
 
@@ -59,11 +60,9 @@ struct OverflowOrderPersistenceTests {
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
         manager.savedSectionOrder = [MenuBarSectionName.visible.rawValue: [a, b, c].map(\.uniqueIdentifier)]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c].map(\.uniqueIdentifier))
 
-        let order = manager.computeSectionOrder(
-            from: manager.itemCache,
-            projection: Self.visibleProjection(order: [a, b, c].map(\.uniqueIdentifier))
-        )
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a, b, c].map(\.uniqueIdentifier))
         #expect(order[MenuBarSectionName.hidden.rawValue] == nil)
@@ -79,11 +78,9 @@ struct OverflowOrderPersistenceTests {
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, c, e]
         manager.itemCache[.hidden] = [b, d]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c, d, e].map(\.uniqueIdentifier))
 
-        let order = manager.computeSectionOrder(
-            from: manager.itemCache,
-            projection: Self.visibleProjection(order: [a, b, c, d, e].map(\.uniqueIdentifier))
-        )
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a, b, c, d, e].map(\.uniqueIdentifier))
     }
@@ -96,12 +93,12 @@ struct OverflowOrderPersistenceTests {
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
-
-        let projection = MenuBarItemManager.AuthoredLayoutProjection(
-            sectionAssignment: [b.uniqueIdentifier: .hidden],
-            sectionOrder: [.visible: [a, c].map(\.uniqueIdentifier), .hidden: [b.uniqueIdentifier]]
+        manager.authoredLayoutSourceOverride = Self.source(
+            order: [a, c].map(\.uniqueIdentifier),
+            assignment: [b.uniqueIdentifier: .hidden]
         )
-        let order = manager.computeSectionOrder(from: manager.itemCache, projection: projection)
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a, c].map(\.uniqueIdentifier))
         #expect(order[MenuBarSectionName.hidden.rawValue] == [b.uniqueIdentifier])
@@ -112,19 +109,41 @@ struct OverflowOrderPersistenceTests {
         let a = Self.item("A", x: 10)
         let b = Self.item("B", x: 40)
         let c = Self.item("C", x: 70)
+        let d = Self.item("D", x: 100)
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, c]
-        manager.itemCache[.hidden] = [b]
+        manager.itemCache[.hidden] = [b, d]
         manager.savedSectionOrder = [MenuBarSectionName.visible.rawValue: [a, b, c].map(\.uniqueIdentifier)]
-
-        let projection = MenuBarItemManager.AuthoredLayoutProjection(
-            sectionAssignment: [b.uniqueIdentifier: .hidden],
-            sectionOrder: [.visible: [a, c].map(\.uniqueIdentifier), .hidden: [b.uniqueIdentifier]]
+        manager.authoredLayoutSourceOverride = Self.source(
+            order: [a, c, d].map(\.uniqueIdentifier),
+            assignment: [b.uniqueIdentifier: .hidden]
         )
-        let order = manager.computeSectionOrder(from: manager.itemCache, projection: projection)
 
-        #expect(order[MenuBarSectionName.visible.rawValue] == [a, c].map(\.uniqueIdentifier))
+        let order = manager.computeSectionOrder(from: manager.itemCache)
+
+        #expect(order[MenuBarSectionName.visible.rawValue] == [a, c, d].map(\.uniqueIdentifier))
         #expect(order[MenuBarSectionName.hidden.rawValue] == [b.uniqueIdentifier])
+    }
+
+    @Test("An always-hidden item stays in the backend's bucket while Visible overflow is projected")
+    func alwaysHiddenMembershipFollowsBackendBucket() {
+        let a = Self.item("A", x: 10)
+        let b = Self.item("B", x: 40)
+        let alwaysHidden = Self.item("AH", x: 70)
+        let manager = MenuBarItemManager()
+        // allowsAlwaysHidden == false: the backend filed AH under Hidden.
+        manager.itemCache[.visible] = [a]
+        manager.itemCache[.hidden] = [alwaysHidden, b]
+        manager.authoredLayoutSourceOverride = Self.source(
+            order: [a, b].map(\.uniqueIdentifier),
+            assignment: [alwaysHidden.uniqueIdentifier: .alwaysHidden]
+        )
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
+
+        #expect(order[MenuBarSectionName.visible.rawValue] == [a, b].map(\.uniqueIdentifier))
+        #expect(order[MenuBarSectionName.hidden.rawValue] == [alwaysHidden.uniqueIdentifier])
+        #expect(order[MenuBarSectionName.alwaysHidden.rawValue] == nil)
     }
 
     @Test("A closed app keeps its slot while a Visible item is overflowed")
@@ -139,13 +158,11 @@ struct OverflowOrderPersistenceTests {
         manager.savedSectionOrder = [
             MenuBarSectionName.visible.rawValue: [a.uniqueIdentifier, b.uniqueIdentifier, closed, c.uniqueIdentifier],
         ]
-
-        let order = manager.computeSectionOrder(
-            from: manager.itemCache,
-            projection: Self.visibleProjection(
-                order: [a.uniqueIdentifier, b.uniqueIdentifier, closed, c.uniqueIdentifier]
-            )
+        manager.authoredLayoutSourceOverride = Self.source(
+            order: [a.uniqueIdentifier, b.uniqueIdentifier, closed, c.uniqueIdentifier]
         )
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a.uniqueIdentifier, b.uniqueIdentifier, closed, c.uniqueIdentifier])
     }
@@ -156,11 +173,11 @@ struct OverflowOrderPersistenceTests {
         let transient = Self.transientItem("Item-0", x: 40)
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, transient]
-
-        let order = manager.computeSectionOrder(
-            from: manager.itemCache,
-            projection: Self.visibleProjection(order: [a.uniqueIdentifier, transient.uniqueIdentifier])
+        manager.authoredLayoutSourceOverride = Self.source(
+            order: [a.uniqueIdentifier, transient.uniqueIdentifier]
         )
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a.uniqueIdentifier])
     }
@@ -172,13 +189,63 @@ struct OverflowOrderPersistenceTests {
         let c = Self.item("C", x: 70)
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, b, c]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c].map(\.uniqueIdentifier))
 
-        let order = manager.computeSectionOrder(
-            from: manager.itemCache,
-            projection: Self.visibleProjection(order: [a, b, c].map(\.uniqueIdentifier))
-        )
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a, b, c].map(\.uniqueIdentifier))
+    }
+
+    @Test("A stale cache after overflow clears still keeps the item Visible")
+    func staleCacheAfterOverflowClearKeepsItemVisible() {
+        // The controller has already cleared its overflow set, but the
+        // effective cache still files B under Hidden until the next inventory
+        // walk. A profile capture in that window must not record B as Hidden.
+        let a = Self.item("A", x: 10)
+        let b = Self.item("B", x: 40)
+        let c = Self.item("C", x: 70)
+        let manager = MenuBarItemManager()
+        manager.itemCache[.visible] = [a, c]
+        manager.itemCache[.hidden] = [b]
+        manager.savedSectionOrder = [MenuBarSectionName.visible.rawValue: [a, b, c].map(\.uniqueIdentifier)]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c].map(\.uniqueIdentifier))
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
+
+        #expect(order[MenuBarSectionName.visible.rawValue] == [a, b, c].map(\.uniqueIdentifier))
+        #expect(order[MenuBarSectionName.hidden.rawValue] == nil)
+    }
+
+    @Test("Within-section reordering survives while another item is overflowed")
+    func withinSectionReorderPreservedWhileOverflowConceals() {
+        let a = Self.item("A", x: 10)
+        let b = Self.item("B", x: 40)
+        let c = Self.item("C", x: 70)
+        let manager = MenuBarItemManager()
+        // The user command-dragged C ahead of A; B is still overflowed.
+        manager.itemCache[.visible] = [c, a]
+        manager.itemCache[.hidden] = [b]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c].map(\.uniqueIdentifier))
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
+
+        // The live order [C, A] is the authority; B reinserts behind its
+        // surviving recorded predecessor A.
+        #expect(order[MenuBarSectionName.visible.rawValue] == [c, a, b].map(\.uniqueIdentifier))
+    }
+
+    @Test("A runtime whose cache agrees with its assignment uses legacy semantics")
+    func runtimeWithAgreeingCacheKeepsLegacySemantics() {
+        let a = Self.item("A", x: 10)
+        let c = Self.item("C", x: 70)
+        let manager = MenuBarItemManager()
+        manager.itemCache[.visible] = [a, c]
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, c].map(\.uniqueIdentifier))
+
+        let order = manager.computeSectionOrder(from: manager.itemCache)
+
+        #expect(order[MenuBarSectionName.visible.rawValue] == [a, c].map(\.uniqueIdentifier))
+        #expect(order[MenuBarSectionName.hidden.rawValue] == nil)
     }
 
     @Test("Repeated capture is idempotent and leaves the presentation cache untouched")
@@ -190,17 +257,17 @@ struct OverflowOrderPersistenceTests {
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
         let before = manager.itemCache
-        let projection = Self.visibleProjection(order: [a, b, c].map(\.uniqueIdentifier))
+        manager.authoredLayoutSourceOverride = Self.source(order: [a, b, c].map(\.uniqueIdentifier))
 
-        let first = manager.computeSectionOrder(from: manager.itemCache, projection: projection)
-        let second = manager.computeSectionOrder(from: manager.itemCache, projection: projection)
+        let first = manager.computeSectionOrder(from: manager.itemCache)
+        let second = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(first == second)
         #expect(manager.itemCache == before)
     }
 
-    @Test("No projection keeps the effective cache as authority")
-    func noProjectionKeepsLegacySemantics() {
+    @Test("No runtime keeps the effective cache as authority")
+    func noRuntimeKeepsLegacySemantics() {
         let a = Self.item("A", x: 10)
         let b = Self.item("B", x: 40)
         let c = Self.item("C", x: 70)
@@ -208,9 +275,24 @@ struct OverflowOrderPersistenceTests {
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
 
-        let order = manager.computeSectionOrder(from: manager.itemCache, projection: nil)
+        let order = manager.computeSectionOrder(from: manager.itemCache)
 
         #expect(order[MenuBarSectionName.visible.rawValue] == [a, c].map(\.uniqueIdentifier))
         #expect(order[MenuBarSectionName.hidden.rawValue] == [b.uniqueIdentifier])
+    }
+
+    @Test("Canonical identifiers from the record match live item identifiers")
+    func canonicalIdentifiersMatchRecord() {
+        // Dato's volatile title is canonicalized before use as identity.
+        let item = MenuBarItem(
+            tag: MenuBarItemTag(namespace: .string("com.sindresorhus.Dato"), title: "Sat 3:41", instanceIndex: 0),
+            windowID: 1,
+            ownerPID: 100,
+            sourcePID: 200,
+            bounds: CGRect(x: 10, y: 0, width: 24, height: 24),
+            title: "Sat 3:41",
+            isOnScreen: true
+        )
+        #expect(MenuBarItemTag.canonicalPersistentIdentifier(item.uniqueIdentifier) == item.uniqueIdentifier)
     }
 }

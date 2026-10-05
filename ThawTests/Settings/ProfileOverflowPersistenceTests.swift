@@ -47,9 +47,9 @@ struct ProfileOverflowPersistenceTests {
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
-        manager.authoredLayoutProjectionOverride = MenuBarItemManager.AuthoredLayoutProjection(
+        manager.authoredLayoutSourceOverride = MenuBarItemManager.AuthoredLayoutSource(
             sectionAssignment: [:],
-            sectionOrder: [.visible: [a, b, c].map(\.uniqueIdentifier)]
+            sectionItemOrder: [.visible: [a, b, c].map(\.uniqueIdentifier)]
         )
 
         try withManager { profileManager in
@@ -63,6 +63,28 @@ struct ProfileOverflowPersistenceTests {
         }
     }
 
+    @Test("Profile capture after overflow clears still keeps the item Visible")
+    func captureAfterOverflowClearKeepsItemVisible() throws {
+        // The controller cleared overflow but the cache still shows B Hidden.
+        let a = Self.item("A", x: 10)
+        let b = Self.item("B", x: 40)
+        let c = Self.item("C", x: 70)
+        let manager = MenuBarItemManager()
+        manager.itemCache[.visible] = [a, c]
+        manager.itemCache[.hidden] = [b]
+        manager.authoredLayoutSourceOverride = MenuBarItemManager.AuthoredLayoutSource(
+            sectionAssignment: [:],
+            sectionItemOrder: [.visible: [a, b, c].map(\.uniqueIdentifier)]
+        )
+
+        try withManager { profileManager in
+            let snapshot = profileManager.captureCurrentLayout(from: manager, groups: .empty)
+
+            #expect(snapshot.itemOrder?[MenuBarSectionName.visible.rawValue] == [a, b, c].map(\.uniqueIdentifier))
+            #expect(snapshot.itemSectionMap?[b.uniqueIdentifier] == MenuBarSectionName.visible.rawValue)
+        }
+    }
+
     @Test("Profile capture keeps an authored-Hidden item Hidden")
     func captureKeepsAuthoredHiddenItemHidden() throws {
         let a = Self.item("A", x: 10)
@@ -71,9 +93,9 @@ struct ProfileOverflowPersistenceTests {
         let manager = MenuBarItemManager()
         manager.itemCache[.visible] = [a, c]
         manager.itemCache[.hidden] = [b]
-        manager.authoredLayoutProjectionOverride = MenuBarItemManager.AuthoredLayoutProjection(
+        manager.authoredLayoutSourceOverride = MenuBarItemManager.AuthoredLayoutSource(
             sectionAssignment: [b.uniqueIdentifier: .hidden],
-            sectionOrder: [.visible: [a, c].map(\.uniqueIdentifier), .hidden: [b.uniqueIdentifier]]
+            sectionItemOrder: [.visible: [a, c].map(\.uniqueIdentifier), .hidden: [b.uniqueIdentifier]]
         )
 
         try withManager { profileManager in
