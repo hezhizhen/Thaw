@@ -231,7 +231,7 @@ struct FoldedMenuBar: View {
                 if let image {
                     image.swiftUIImage
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
+                        .scaledToFit()
                 } else {
                     Image(systemName: "menubar.rectangle")
                 }

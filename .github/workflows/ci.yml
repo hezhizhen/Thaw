@@ -92,9 +92,10 @@ jobs:
       - name: Run SwiftLint
         if: needs.changes.outputs.code == 'true'
         run: |
+          bash scripts/tests/test-lint.sh
           docker run --rm -v "$PWD:/work" -w /work \
-            ghcr.io/realm/swiftlint:0.63.3@sha256:b70b763c949399cc3e4fdcfbc7588944d9503d498b6d96e853dfa07a944256e6 \
-            swiftlint --strict
+            ghcr.io/realm/swiftlint:0.65.1@sha256:f47e083201e47a136cda5ae847595bfe00226c444ca226fa74fa5dc648a9b057 \
+            /bin/sh scripts/lint.sh --strict
 
   build:
     if: github.repository == 'thaw-app/Thaw'

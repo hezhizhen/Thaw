@@ -141,11 +141,15 @@ actionlint .github/workflows/build-dmg.yml .github/workflows/release.yml
 
 ### Code style
 
-Thaw uses [SwiftLint](https://github.com/realm/SwiftLint) and [SwiftFormat](https://github.com/nicklockwood/SwiftFormat). Config lives in [`.swiftlint.yml`](../.swiftlint.yml) and [`.swiftformat`](../.swiftformat). Before submitting, run:
+Thaw uses [SwiftLint](https://github.com/realm/SwiftLint) and [SwiftFormat](https://github.com/nicklockwood/SwiftFormat). Config lives in [`.swiftlint.yml`](../.swiftlint.yml) and [`.swiftformat`](../.swiftformat).
+
+Install the SwiftLint version recorded in [`.swiftlint-version`](../.swiftlint-version) from the [SwiftLint releases](https://github.com/realm/SwiftLint/releases) and put its `swiftlint` executable on your `PATH`. Xcode and CI both use `scripts/lint.sh`, which rejects missing or mismatched versions. When updating the version, also update the Docker image tag and digest in `.github/workflows/ci.yml`.
+
+Before submitting, run:
 
 ```bash
 swiftformat .
-swiftlint lint --strict
+sh scripts/lint.sh --strict
 ```
 
 ### SCA / SAST expectations
