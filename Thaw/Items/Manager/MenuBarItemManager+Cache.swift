@@ -394,7 +394,10 @@ extension MenuBarItemManager {
     }
 
     /// Mirror only settled, concealed geometry; reveal interleaving must not become saved order that reconciliation enforces.
-    private func mirrorSavedSectionOrderIfSettled(from cache: ItemCache) {
+    func mirrorSavedSectionOrderIfSettled(
+        from cache: ItemCache,
+        displays: [CGRect] = activeDisplayBounds()
+    ) {
         let isAnySectionRevealed = appState?.menuBarManager.sectionController.revealedSection != nil
         let shouldPersistLayoutSnapshot = !suppressSpatialOrderPersistenceAfterFailedApply
             && !isNotificationCenterLayoutSuspended

@@ -6,6 +6,7 @@
 //  Licensed under the GNU GPLv3
 
 import CoreGraphics
+import Foundation
 import MenuBarModel
 import Testing
 @testable import Thaw
@@ -41,6 +42,51 @@ struct MultiBarFramesTests {
     func singleBarIsNotMixed() {
         let items = [Self.item(x: 3209, windowID: 1), Self.item(x: 3378, windowID: 2)]
         #expect(!MenuBarItemManager.framesSpanSeveralBars(items, displays: Self.displays))
+    }
+
+    @Test("Concealed snapshots on an old display do not block visible-order persistence")
+    func concealedSnapshotsDoNotBlockMirroring() {
+        let key = "MenuBarItemManager.savedSectionOrder"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(previous, forKey: key) }
+
+        let visible = [Self.item(x: 3209, windowID: 1), Self.item(x: 3378, windowID: 2)]
+        let hidden = Self.item(x: 1338, windowID: 3)
+        let alwaysHidden = Self.item(x: 1400, windowID: 4)
+        var cache = MenuBarItemCache(displayID: nil)
+        cache[.visible] = visible
+        cache[.hidden] = [hidden]
+        cache[.alwaysHidden] = [alwaysHidden]
+        let manager = MenuBarItemManager()
+        let visibleKey = MenuBarSectionName.visible.rawValue
+        manager.savedSectionOrder = [visibleKey: visible.reversed().map(\.uniqueIdentifier)]
+
+        manager.mirrorSavedSectionOrderIfSettled(from: cache, displays: Self.displays)
+
+        #expect(manager.savedSectionOrder[visibleKey] == visible.map(\.uniqueIdentifier))
+        #expect(manager.savedSectionOrder[MenuBarSectionName.hidden.rawValue] == [hidden.uniqueIdentifier])
+        #expect(manager.savedSectionOrder[MenuBarSectionName.alwaysHidden.rawValue] == [alwaysHidden.uniqueIdentifier])
+        #expect(UserDefaults.standard.dictionary(forKey: key)?[visibleKey] as? [String] == visible.map(\.uniqueIdentifier))
+    }
+
+    @Test("Live visible items on different bars still leave the saved order untouched")
+    func mixedVisibleFramesDoNotOverwriteSavedOrder() {
+        let key = "MenuBarItemManager.savedSectionOrder"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(previous, forKey: key) }
+
+        let visible = [Self.item(x: 1338, windowID: 1), Self.item(x: 3209, windowID: 2)]
+        var cache = MenuBarItemCache(displayID: nil)
+        cache[.visible] = visible
+        let manager = MenuBarItemManager()
+        let saved = [MenuBarSectionName.visible.rawValue: visible.reversed().map(\.uniqueIdentifier)]
+        manager.savedSectionOrder = saved
+        UserDefaults.standard.set(saved, forKey: key)
+
+        manager.mirrorSavedSectionOrderIfSettled(from: cache, displays: Self.displays)
+
+        #expect(manager.savedSectionOrder == saved)
+        #expect(UserDefaults.standard.dictionary(forKey: key) as? [String: [String]] == saved)
     }
 
     @Test("Parked and off-band frames do not count as another bar")
