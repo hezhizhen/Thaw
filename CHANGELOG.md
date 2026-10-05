@@ -11,40 +11,41 @@ and the Sparkle appcast, unless overridden with the `release_notes` input.
 
 **macOS 27 only · Build 112**
 
-### Added
+### New
 
-- Triggers can show selected menu bar items while an app runs, including in the background. When it quits, the items follow their saved layout again.
-- Launchers can list and open menu bar items and list and apply profiles through `thaw://` URLs, and get the outcome back. Floe works without setup.
-- Troubleshooting includes “Restore missing menu bar items.” Recovery runs without normal hiding, restores recorded visibility changes or apps you select, and keeps failed recovery records for retry without resetting your saved layout.
-
-### Fixed
-
-- Layout icon previews use current menu bar positions instead of repeatedly retrying stale screenshot coordinates. Movement and overlap checks still reject captures that could show a neighboring item.
-- Simple Mode keeps refreshing icon previews through the same capture loop as Layout, regardless of the last sidebar page.
-- Amphetamine and Rectangle keep their hidden-item identities across title changes and restarts, without merging distinct sibling items.
-- Items parked off the menu bar no longer add new overflow pressure unless macOS shows its own overflow control.
-- Appearance detects an automatically hiding menu bar on macOS 27.
-- Split appearance pills cover mirrored status items on secondary displays and follow their live leading edge after startup.
-- Clicking Thaw’s icon after it moves no longer dismisses the Thaw Bar as an outside click before reopening it.
-- With “Thaw Bar own look” off, the bar uses the shared background sample for its display instead of a narrow wallpaper slice that could turn the bar gray and its icons black.
-- Showing Live Activities and the camera indicator prevents conflicting assertion-based hiding of Clock, Control Center, and Siri.
-- Release notes and Credits use the same body and heading text styles as Settings instead of a separate oversized type scale.
-- Displays has “When applying spacing” again. With “Wait until next restart,” Thaw saves the spacing without relaunching apps or asking to apply it, and apps pick it up when they next start (#1230).
+- **Triggers can show items while an app runs**, even in the background. When it quits, they go back to your saved layout.
+- **Launchers can open menu bar items and apply profiles** through `thaw://` URLs. Floe works without setup.
+- **Restore missing menu bar items**, in Troubleshooting, brings back stuck items and keeps your saved layout.
 
 ### Changed
 
-- Automatic overflow is off by default. Existing user preferences are unchanged.
-- A gold app icon and matching accent color.
-- About has a revised layout, a sidebar entry, and a Credits page for contributors and translators.
+- **Automatic overflow is off by default.** If you set it yourself, your choice stays.
+- **A gold app icon** and a matching accent color.
+- **About has a new layout**, a sidebar entry and a Credits page.
+- **Release notes and Credits use the same text sizes as Settings.**
+- **Menu bar history is gone**, with its click history and unused-item suggestions. Thaw clears the recorded history on launch. Layout backups and hidden items are unaffected.
 
-### Removed
+### Fixed: missing icons and search
 
-- The Menu bar history experiment, including click history and unused-item suggestions. Previously recorded history is cleared on launch. Layout backups and hiding assignments are unaffected.
+- **Thaw says when macOS is blocking its icon.** A warning under "Show Thaw icon" points you to System Settings > Menu Bar. Reported by @promonteiro89 in [#1232](https://github.com/thaw-app/Thaw/issues/1232).
+- **Thaw warns when apps it hid are still hidden** after a launch where it couldn't show them again. The warning in General opens Tools, where you can restore them.
+- **Menu bar search keeps the keyboard** after a search with no matches, and when you open it again.
 
-### Development
+### Fixed: items and previews
 
-- Local builds compile the sibling PlatformRuntimeKit source checkout against the same MenuBarModel as Thaw.
-- `devrun.sh` reports build stages, saves full logs outside the checkout, supports `--verbose`, and verifies the launched process and diagnostic-logging preference.
+- **Layout previews follow each item's current position.**
+- **Simple Mode previews stay up to date.**
+- **Amphetamine and Rectangle stay hidden** across title changes and restarts.
+- **Items parked off the menu bar no longer count toward overflow.**
+- **Clock, Control Center and Siri stay in view** with Live Activities and the camera indicator shown.
+
+### Fixed: appearance, Thaw Bar and Displays
+
+- **Appearance detects a menu bar that hides automatically.**
+- **Split pills cover status items on secondary displays.**
+- **Clicking Thaw's icon after it moves** no longer closes and reopens the Thaw Bar.
+- **The Thaw Bar no longer turns gray with black icons** when "Thaw Bar own look" is off.
+- **"When applying spacing" is back in Displays.** "Wait until next restart" saves the spacing without relaunching apps. [#1230](https://github.com/thaw-app/Thaw/issues/1230)
 
 ## [3.0.0-beta.1] - 2026-10-01
 
