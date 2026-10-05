@@ -2995,6 +2995,12 @@ extension MenuBarItemManager {
             moveMonitor.recordStoreUnavailable()
             return false
         }
+        guard !ignoredPreferredWrites.skipsWrite(for: item.uniqueIdentifier) else {
+            MenuBarItemManager.diagLog.debug(
+                "MenuBarAgent ignored the last preferred-position writes for \(item.logString); dragging instead"
+            )
+            return false
+        }
 
         // The user's own move is the retry that clears the breaker, so it must
         // reach the store even during a cooldown; only automatic passes wait.
@@ -3074,16 +3080,16 @@ extension MenuBarItemManager {
         // captures mid-animation cache garbled slices. Verification re-stamps.
         moveActivity.noteMoveOperation()
 
-        // Feeds the drag-first cooldown on exit, only for nudged writes.
+        // Feeds the per-item write record on exit, only for nudged writes.
         var writeVerified = false
-        var observedBarMoved = false
         var observationUnavailable = false
         defer {
             if nudgeRan, !observationUnavailable {
-                recordPreferredPositionWriteObservation(
-                    verified: writeVerified,
-                    barMoved: observedBarMoved
-                )
+                if writeVerified {
+                    ignoredPreferredWrites.noteVerified(item.uniqueIdentifier)
+                } else if !Task.isCancelled {
+                    ignoredPreferredWrites.noteUnverified(item.uniqueIdentifier)
+                }
             }
         }
 
@@ -3120,7 +3126,6 @@ extension MenuBarItemManager {
             try Task.checkCancellation()
             return false
         }
-        observedBarMoved = observedBarMoved || firstWait.barMoved
         let updated = firstWait.items
         if destinationSatisfied(updated) {
             writeVerified = true
@@ -3198,7 +3203,6 @@ extension MenuBarItemManager {
                 try Task.checkCancellation()
                 return false
             }
-            observedBarMoved = observedBarMoved || retried.barMoved
             if destinationSatisfied(retried.items) {
                 writeVerified = true
                 moveActivity.noteMoveOperation()

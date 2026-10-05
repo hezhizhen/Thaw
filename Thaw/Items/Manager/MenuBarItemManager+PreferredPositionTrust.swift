@@ -30,32 +30,6 @@ extension MenuBarItemManager {
         return value
     }
 
-    /// Feeds the drag-first cooldown from one preferred-position write. Safe
-    /// only because barMoved comes from the geometry poll, not stale AX bounds.
-    func recordPreferredPositionWriteObservation(verified: Bool, barMoved: Bool) {
-        if verified {
-            consecutiveIgnoredPreferredWrites = 0
-            dragFirstCooldownUntil = nil
-            return
-        }
-        if barMoved {
-            // The agent reacted, just not into the asked order yet.
-            consecutiveIgnoredPreferredWrites = 0
-            return
-        }
-        consecutiveIgnoredPreferredWrites += 1
-        if consecutiveIgnoredPreferredWrites >= Self.dragFirstIgnoredThreshold,
-           dragFirstCooldownUntil == nil
-        {
-            dragFirstCooldownUntil = .now + Self.dragFirstCooldownDuration
-            MenuBarItemManager.diagLog.info(
-                "MenuBarAgent ignored \(consecutiveIgnoredPreferredWrites) consecutive writes; " +
-                    "entering drag-first cooldown for " +
-                    "\(Int(Self.dragFirstCooldownDuration.components.seconds)) s"
-            )
-        }
-    }
-
     /// Opens a fresh convergence budget of visible drags after an authored
     /// pane edit commits.
     func noteAuthoredEditCommitted() {
@@ -101,5 +75,29 @@ extension MenuBarItemManager {
         MenuBarItemManager.diagLog.debug(
             "Preferred-position write unverified (\(preferredPositionsIgnoredEvidence) this session); falling back per move"
         )
+    }
+}
+
+/// Items whose preferred-position writes MenuBarAgent keeps ignoring. Some
+/// items are never laid out by their weight (seen for a helper without a
+/// registered bundle), so every move paid the verification wait before its
+/// drag. Whether the bar moved is no verdict: items with live-width titles
+/// shift it all the time. After two unverified writes in a row the item goes
+/// straight to the drag; a verified write clears it.
+struct IgnoredPreferredWrites {
+    static let strikes = 2
+
+    private var counts: [String: Int] = [:]
+
+    func skipsWrite(for identifier: String) -> Bool {
+        counts[identifier, default: 0] >= Self.strikes
+    }
+
+    mutating func noteUnverified(_ identifier: String) {
+        counts[identifier, default: 0] += 1
+    }
+
+    mutating func noteVerified(_ identifier: String) {
+        counts[identifier] = nil
     }
 }
