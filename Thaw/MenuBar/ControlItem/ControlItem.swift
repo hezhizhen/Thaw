@@ -719,9 +719,14 @@ extension ControlItem {
                 // An item parked at x = -1, or measured with no size, has not
                 // landed in the bar; re-assert the icon instead of publishing it.
                 if Self.isDegenerateMenuBarFrame(measuredFrame) {
-                    diagLog.warning(
-                        "degenerate status window frame \(NSStringFromRect(measuredFrame))"
-                    )
+                    // Every item measures {0, 0, 1, 0} until its first layout;
+                    // only an item that had landed and lost its frame is news.
+                    let message = "degenerate status window frame \(NSStringFromRect(measuredFrame))"
+                    if frame == nil {
+                        diagLog.debug(message)
+                    } else {
+                        diagLog.warning(message)
+                    }
                     reassertVisibleIconImage()
                     noteDegenerateFrame()
                     return
