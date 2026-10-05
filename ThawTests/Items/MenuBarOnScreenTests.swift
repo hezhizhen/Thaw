@@ -39,6 +39,57 @@ struct MenuBarOnScreenTests {
         ))
     }
 
+    private static let stackedDisplays = [
+        CGRect(x: 0, y: -1080, width: 1920, height: 1080),
+        CGRect(x: 0, y: 0, width: 1920, height: 1080),
+    ]
+
+    @Test("A neighbouring stacked display cannot validate a hidden bar", arguments: [0, 1])
+    func stackedDisplayDoesNotValidateHiddenBar(targetIndex: Int) {
+        let target = Self.stackedDisplays[targetIndex]
+        let neighbour = Self.stackedDisplays[1 - targetIndex]
+        let frames = [
+            CGRect(x: 0, y: target.minY - 62, width: 1920, height: 30),
+            CGRect(x: 0, y: neighbour.minY, width: 1920, height: 30),
+        ]
+        #expect(!MenuBarItemImageCache.isBarOnScreen(
+            barFrames: frames, display: target, displays: Self.stackedDisplays
+        ))
+        #expect(!MenuBarItemImageCache.isBarOnScreen(
+            barFrames: Array(frames.reversed()), display: target, displays: Self.stackedDisplays
+        ))
+    }
+
+    @Test("A visible stacked bar stays capturable when its neighbour is hidden", arguments: [0, 1])
+    func visibleStackedBarRemainsCapturable(targetIndex: Int) {
+        let target = Self.stackedDisplays[targetIndex]
+        let neighbour = Self.stackedDisplays[1 - targetIndex]
+        #expect(MenuBarItemImageCache.isBarOnScreen(
+            barFrames: [
+                CGRect(x: 0, y: target.minY, width: 1920, height: 30),
+                CGRect(x: 0, y: neighbour.minY - 62, width: 1920, height: 30),
+            ],
+            display: target, displays: Self.stackedDisplays
+        ))
+    }
+
+    @Test("A missing target bar remains unknown even when another stacked bar is present", arguments: [0, 1])
+    func otherDisplaysDoNotSupplyMissingGeometry(targetIndex: Int) {
+        let neighbour = Self.stackedDisplays[1 - targetIndex]
+        #expect(MenuBarItemImageCache.isBarOnScreen(
+            barFrames: [CGRect(x: 0, y: neighbour.minY, width: 1920, height: 30)],
+            display: Self.stackedDisplays[targetIndex], displays: Self.stackedDisplays
+        ))
+    }
+
+    @Test("Equidistant bar geometry is unknown rather than assigned to either display", arguments: [0, 1])
+    func equidistantGeometryRemainsUnknown(targetIndex: Int) {
+        #expect(MenuBarItemImageCache.isBarOnScreen(
+            barFrames: [CGRect(x: 0, y: -540, width: 1920, height: 30)],
+            display: Self.stackedDisplays[targetIndex], displays: Self.stackedDisplays
+        ))
+    }
+
     @Test("Inventory refresh requests are limited to one per two seconds")
     @MainActor
     func refreshRequestsAreRateLimited() {

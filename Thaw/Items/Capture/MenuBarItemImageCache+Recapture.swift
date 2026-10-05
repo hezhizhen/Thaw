@@ -588,23 +588,34 @@ extension MenuBarItemImageCache {
         }
     }
 
-    /// Whether the menu bar host's bar window over display is on screen.
-    ///
-    /// macOS can slide a display's bar above its top edge while focus is on another display.
-    /// Capturing that display then reads blank pixels, and every glyph would fall back to its
-    /// app icon until the bar returns. Unknown geometry counts as on screen.
+    /// Skip bars slid above their display; unknown geometry still permits capture.
+    @MainActor
     static func isMenuBarOnScreen(displayID: CGDirectDisplayID) -> Bool {
         guard let host = NSRunningApplication.runningApplications(
             withBundleIdentifier: SharedConstants.menuBarHostingBundleID
         ).first else { return true }
         let barFrames = Bridging.getMenuBarWindowIDs(forProcess: host.processIdentifier, skipWidthFilter: true)
             .compactMap { Bridging.getWindowBounds(for: $0) }
-        return isBarOnScreen(barFrames: barFrames, display: CGDisplayBounds(displayID))
+        return isBarOnScreen(
+            barFrames: barFrames,
+            display: CGDisplayBounds(displayID),
+            displays: NSScreen.screens.map { CGDisplayBounds($0.displayID) }
+        )
     }
 
-    /// isMenuBarOnScreen(displayID:) over known frames: the bar windows spanning display's width.
-    static nonisolated func isBarOnScreen(barFrames: [CGRect], display: CGRect) -> Bool {
-        let bars = barFrames.filter { abs($0.minX - display.minX) < 1 && abs($0.width - display.width) < 1 }
+    /// Same-width stacked displays own the bar nearest their top edge; ties remain unknown.
+    static nonisolated func isBarOnScreen(barFrames: [CGRect], display: CGRect, displays: [CGRect] = []) -> Bool {
+        func matchesHorizontalSpan(_ frame: CGRect, _ screen: CGRect) -> Bool {
+            abs(frame.minX - screen.minX) < 1 && abs(frame.width - screen.width) < 1
+        }
+        let bars = barFrames.filter { frame in
+            guard matchesHorizontalSpan(frame, display) else { return false }
+            let distance = abs(frame.minY - display.minY)
+            return !displays.contains { other in
+                other != display && matchesHorizontalSpan(frame, other)
+                    && abs(frame.minY - other.minY) <= distance
+            }
+        }
         guard !bars.isEmpty else { return true }
         return bars.contains { $0.minY >= display.minY - 1 }
     }
