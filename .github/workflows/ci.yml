@@ -17,7 +17,7 @@ permissions:
 # The project builds PlatformRuntimeKit from a sibling checkout. Keep this
 # revision paired with the kit commit the sources on this branch need.
 env:
-  PLATFORM_RUNTIME_KIT_REF: 13a5b9fbf2fa36a45c2430d07a41b106b0720e9f
+  PLATFORM_RUNTIME_KIT_REF: 751a334209b620f357846ec8fb7e4111bdaebee1
 
 jobs:
   changes:

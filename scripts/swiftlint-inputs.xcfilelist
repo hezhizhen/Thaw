@@ -433,6 +433,7 @@ $(SRCROOT)/Thaw/System/Migration.swift
 $(SRCROOT)/Thaw/System/NativeAppHidingOffer.swift
 $(SRCROOT)/Thaw/System/Permissions/AppPermissions.swift
 $(SRCROOT)/Thaw/System/Permissions/FullDiskAccessPermission.swift
+$(SRCROOT)/Thaw/System/Permissions/MenuBarAllowState.swift
 $(SRCROOT)/Thaw/System/Permissions/NativeVisibilityRecoveryLaunch.swift
 $(SRCROOT)/Thaw/System/Permissions/Permission.swift
 $(SRCROOT)/Thaw/System/Permissions/PermissionViews.swift
