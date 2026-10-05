@@ -337,6 +337,9 @@ final class LayoutBarContainer: NSView {
             .filter { Bridging.isProcessUnresponsive($0) }
         for view in itemViews {
             view.isOwnerUnresponsive = unresponsivePIDs.contains(view.item.ownerPID)
+            view.visibilityLimit = appState.flatMap {
+                LayoutBarVisibilityLimit.limit(for: view.item, in: section, appState: $0)
+            }
         }
     }
 
