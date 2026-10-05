@@ -133,6 +133,16 @@ final class LayoutBarItemView: LayoutBarArrangedView {
         }
     }
 
+    /// Set when macOS keeps the icon out of this tile's section.
+    var visibilityLimit: LayoutBarVisibilityLimit? {
+        didSet {
+            guard visibilityLimit != oldValue else { return }
+            toolTip = visibilityLimit?.explanation
+            setAccessibilityHelp(visibilityLimit?.explanation)
+            needsDisplay = true
+        }
+    }
+
     /// Cache template variants by source identity and tint; clear when menuBarForegroundColor changes.
     private var tintedImageCache: [ObjectIdentifier: [NSColor: NSImage]] = [:]
 
@@ -674,17 +684,21 @@ final class LayoutBarItemView: LayoutBarArrangedView {
             drawPlaceholder()
         }
         if isOwnerUnresponsive {
-            drawUnresponsiveBadge()
+            drawWarningBadge(atLeadingEdge: false)
+        }
+        if visibilityLimit != nil {
+            drawWarningBadge(atLeadingEdge: true)
         }
     }
 
-    /// Draws the warning badge into the view's bottom-right corner, scaled to
-    /// Metrics.unresponsiveBadgeWidth.
-    private func drawUnresponsiveBadge() {
+    /// Draws the warning badge into the view's bottom-right corner (bottom-left
+    /// for a visibility limit), scaled to Metrics.unresponsiveBadgeWidth.
+    private func drawWarningBadge(atLeadingEdge: Bool) {
         let badge = NSImage.warning
         let badgeWidth = Metrics.unresponsiveBadgeWidth
         let badgeSize = CGSize(width: badgeWidth, height: badge.size.height * (badgeWidth / badge.size.width))
-        badge.draw(in: CGRect(x: bounds.maxX - badgeSize.width, y: bounds.minY, width: badgeSize.width, height: badgeSize.height))
+        let originX = atLeadingEdge ? bounds.minX : bounds.maxX - badgeSize.width
+        badge.draw(in: CGRect(x: originX, y: bounds.minY, width: badgeSize.width, height: badgeSize.height))
     }
 
     private var shouldPreferPlaceholderImage: Bool {

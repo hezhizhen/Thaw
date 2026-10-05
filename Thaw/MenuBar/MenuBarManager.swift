@@ -175,6 +175,11 @@ final class MenuBarManager {
         runtimeSectionController?.nativeHiddenBundleIDs ?? []
     }
 
+    /// Apps native hiding could not switch off; their icons stay on the bar.
+    var nativeUntrackedBundleIDs: Set<String> {
+        runtimeSectionController?.nativeUntrackedBundleIDs ?? []
+    }
+
     let nativeAppHidingExperiment = NativeAppHidingExperiment()
 
     /// Per-extra opt-in stand-ins for Apple extras removed in hidden sections; see SystemExtraTakeoverCoordinator.
