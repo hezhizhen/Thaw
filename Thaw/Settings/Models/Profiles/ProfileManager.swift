@@ -677,7 +677,7 @@ final class ProfileManager {
     }
 
     /// Depend only on the item manager and defaults so capture and rearm tests need no AppState.
-    private func captureCurrentLayout(
+    func captureCurrentLayout(
         from itemManager: MenuBarItemManager,
         groups: MenuBarItemGroupSet
     ) -> MenuBarLayoutSnapshot {
