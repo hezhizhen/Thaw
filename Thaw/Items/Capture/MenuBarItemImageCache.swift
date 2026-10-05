@@ -178,7 +178,7 @@ final class MenuBarItemImageCache: @unchecked Sendable {
     /// How many passes a live reflow may suppress before one runs regardless.
     static nonisolated let maximumReflowSkips = 8
 
-    /// Everything one capture pass learned, in four buckets.
+    /// Everything one capture pass learned.
     ///
     /// The invalidation sets carry reads that prove the cached entry wrong;
     /// without them a poisoned entry would survive every later pass.
@@ -204,6 +204,22 @@ final class MenuBarItemImageCache: @unchecked Sendable {
 
         /// Items whose crop succeeded, forgiven in the ledger on the same terms.
         var recoveredItems = [MenuBarItem]()
+
+        /// Tags this pass attempted whatever their failure record said. The
+        /// record itself is forgotten on the same terms, so a discarded pass
+        /// leaves it alone and the next pass sets it aside again.
+        var forgivenTags = Set<MenuBarItemTag>()
+
+        /// Folds a later section's result into this pass.
+        mutating func absorb(_ section: CapturePass) {
+            captured.merge(section.captured) { _, new in new }
+            unreadable += section.unreadable
+            invalidatedTags.formUnion(section.invalidatedTags)
+            unconditionallyInvalidatedTags.formUnion(section.unconditionallyInvalidatedTags)
+            failedCaptureItems += section.failedCaptureItems
+            recoveredItems += section.recoveredItems
+            forgivenTags.formUnion(section.forgivenTags)
+        }
     }
 
     /// The published cache itself: the most recent crop trusted for each item.

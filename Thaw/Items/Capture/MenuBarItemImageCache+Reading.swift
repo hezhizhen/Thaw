@@ -321,6 +321,7 @@ extension MenuBarItemImageCache {
         overflowBounds: [CGRect],
         concealedIdentifiers: Set<String>,
         ambiguousIdentifiers: Set<String>,
+        forgivenTags: Set<MenuBarItemTag>,
         cropRectOwners: inout [CGRect: MenuBarItemTag],
         into result: inout CapturePass
     ) {
@@ -330,7 +331,7 @@ extension MenuBarItemImageCache {
         let scale = capture.scale
 
         for (item, bounds) in candidates {
-            if shouldSkipCapture(for: item) {
+            if !forgivenTags.contains(item.tag), shouldSkipCapture(for: item) {
                 result.unreadable.append(item)
                 continue
             }
@@ -601,6 +602,7 @@ extension MenuBarItemImageCache {
         appState: AppState,
         freshBounds: Bool = false,
         concealedIdentifiers: Set<String> = [],
+        forgivenTags: Set<MenuBarItemTag> = [],
         geometryOwners: Set<pid_t> = []
     ) async -> CapturePass {
         // Dividers capture as transparent; the visible Thaw icon crops from the
@@ -652,6 +654,7 @@ extension MenuBarItemImageCache {
             screenFrame: screenFrame,
             freshBounds: freshBounds,
             concealedIdentifiers: concealedIdentifiers,
+            forgivenTags: forgivenTags,
             using: LiveMenuBarCaptureReader(geometryOwners: geometryOwners)
         )
     }
@@ -664,6 +667,7 @@ extension MenuBarItemImageCache {
         screenFrame: CGRect?,
         freshBounds: Bool,
         concealedIdentifiers: Set<String>,
+        forgivenTags: Set<MenuBarItemTag> = [],
         using reader: any MenuBarCaptureReading = LiveMenuBarCaptureReader()
     ) async -> CapturePass {
         guard !screenIsLocked(), !Task.isCancelled else { return CapturePass() }
@@ -699,6 +703,7 @@ extension MenuBarItemImageCache {
             displayID: displayID,
             validateFreshBounds: freshBounds,
             concealedIdentifiers: concealedIdentifiers,
+            forgivenTags: forgivenTags,
             using: reader
         )
     }
@@ -763,9 +768,12 @@ extension MenuBarItemImageCache {
             for: section,
             revealedSection: revealedSection
         )
-        if section != .visible, shouldUseFreshBounds {
-            clearCaptureFailures(for: items)
-        }
+        // A reveal just put these back on the bar, so they get a fresh attempt
+        // whatever their record says. The pass only sets the record aside; it is
+        // forgotten when the pass commits, so a discarded pass forgives nothing.
+        let forgivenTags = section != .visible && shouldUseFreshBounds
+            ? Set(items.map(\.tag))
+            : []
         // A stale item cache can let concealed items into this pass; the crop
         // loop rejects them against this set.
         let concealedIdentifiers = appState.menuBarManager.sectionController
@@ -778,6 +786,7 @@ extension MenuBarItemImageCache {
             // the post-capture ownership check still rejects movement or ambiguity.
             freshBounds: shouldUseFreshBounds,
             concealedIdentifiers: concealedIdentifiers,
+            forgivenTags: forgivenTags,
             geometryOwners: Self.captureGeometryOwners(
                 for: items,
                 knownItems: appState.itemManager.managedItems,

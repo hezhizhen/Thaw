@@ -14,6 +14,7 @@ extension MenuBarItemImageCache {
         let displayID: CGDirectDisplayID
         let validateFreshBounds: Bool
         let concealedIdentifiers: Set<String>
+        let forgivenTags: Set<MenuBarItemTag>
         // Peer frames must come from the same enumeration as the crop rects,
         // not a later read that can mistake one moving item for two neighbors.
         let captureTimeBounds: [String: CGRect]
@@ -30,6 +31,7 @@ extension MenuBarItemImageCache {
         displayID: CGDirectDisplayID,
         validateFreshBounds: Bool,
         concealedIdentifiers: Set<String>,
+        forgivenTags: Set<MenuBarItemTag> = [],
         using reader: any MenuBarCaptureReading = LiveMenuBarCaptureReader()
     ) async -> CapturePass {
         guard !screenIsLocked(), !itemsWithBounds.isEmpty else { return CapturePass() }
@@ -38,6 +40,8 @@ extension MenuBarItemImageCache {
         let overflowBounds = await reader.overflowBounds(displayID: displayID)
         guard !screenIsLocked() else { return CapturePass() }
         var result = CapturePass()
+        // Staged, not applied: the ledger is read-only until the pass commits.
+        result.forgivenTags = forgivenTags
         let candidates = eligibleAXCaptureCandidates(
             itemsWithBounds, band: band, overflowBounds: overflowBounds, into: &result
         )
@@ -49,6 +53,7 @@ extension MenuBarItemImageCache {
             displayID: displayID,
             validateFreshBounds: validateFreshBounds,
             concealedIdentifiers: concealedIdentifiers,
+            forgivenTags: forgivenTags,
             captureTimeBounds: Dictionary(
                 candidates.map { ($0.item.uniqueIdentifier, $0.bounds) },
                 uniquingKeysWith: { first, _ in first }
@@ -259,6 +264,7 @@ extension MenuBarItemImageCache {
             overflowBounds: context.overflowBounds,
             concealedIdentifiers: context.concealedIdentifiers,
             ambiguousIdentifiers: context.ambiguousIdentifiers,
+            forgivenTags: context.forgivenTags,
             cropRectOwners: &cropRectOwners,
             into: &result
         )

@@ -136,13 +136,6 @@ extension MenuBarItemImageCache {
 
         let scale = screen.backingScaleFactor
 
-        // Before the first await: what this pass publishes must still describe
-        // the layout it started from. See publicationRejection(of:).
-        let admission = CapturePublicationPolicy.admit(
-            layout: appState.itemManager.layoutPublication,
-            displayID: displayID
-        )
-
         // Concealed macOS 27 sections have only stale snapshot bounds, so crop
         // them only while RuntimeSectionController has actually revealed their live AX
         // elements. Incomplete / off-window crops clear the prior entry so the
@@ -154,11 +147,41 @@ extension MenuBarItemImageCache {
         // and os_log persists .default/notice unconditionally, a persistent
         // system-log write per tick even with the diagnostic file disabled.
         MenuBarItemImageCache.diagLog.debug("recaptureNow: displayID=\(screen.displayID) backingScaleFactor=\(Double(scale)) hasNotch=\(screen.hasNotch) menuBarHeight=\(Double(screen.getMenuBarHeightEstimate())) sections=\(sectionsToCapture.map(\.logString))")
-        var newImages = [MenuBarItemTag: MenuBarItemGlyphCapture]()
-        var invalidatedTags = Set<MenuBarItemTag>()
-        var unconditionallyInvalidatedTags = Set<MenuBarItemTag>()
-        // Strikes and recoveries from every section, applied only if the whole pass publishes.
-        var ledger = CapturePass()
+
+        // Nothing is awaited between the guards above and the admission this
+        // call opens with.
+        return await runRecapturePass(
+            capturing: sectionsToCapture,
+            displayID: displayID,
+            ignoreRecentMove: ignoreRecentMove,
+            appState: appState
+        ) { section in
+            await captureImages(for: section, scale: scale, appState: appState)
+        }
+    }
+
+    /// The pass once its screen is known: admits it, captures each section and
+    /// hands the lot to commitRecapturePass(_:admission:ignoreRecentMove:appState:).
+    ///
+    /// captureSection is the pass's only pixel source, which lets a test drive
+    /// the admission and the commit with a scripted reader instead of a screen.
+    @MainActor
+    func runRecapturePass(
+        capturing sectionsToCapture: [MenuBarSection.Name],
+        displayID: CGDirectDisplayID,
+        ignoreRecentMove: Bool,
+        appState: AppState,
+        captureSection: @MainActor (MenuBarSection.Name) async -> CapturePass
+    ) async -> Bool {
+        // Before the first await: what this pass publishes must still describe
+        // the layout it started from. See publicationRejection(of:).
+        let admission = CapturePublicationPolicy.admit(
+            layout: appState.itemManager.layoutPublication,
+            displayID: displayID
+        )
+        // Every section's crops, invalidations, strikes and recoveries; none of
+        // it touches the cache before the commit.
+        var pass = CapturePass()
 
         for section in sectionsToCapture {
             guard !Task.isCancelled else {
@@ -170,11 +193,7 @@ extension MenuBarItemImageCache {
                 continue
             }
 
-            let sectionResult = await captureImages(
-                for: section,
-                scale: scale,
-                appState: appState
-            )
+            let sectionResult = await captureSection(section)
 
             guard !skipCaptureWhileScreenLocked("completed recapture") else { return false }
 
@@ -184,6 +203,8 @@ extension MenuBarItemImageCache {
             // would discard every capture taken on a quiet bar and keep the
             // ones taken mid-move. ignoreRecentMove waives only the cooldown
             // of a move that finished before admission, never a newer one.
+            // Checked here as well as in the commit so a stale pass stops
+            // before it screenshots the next section.
             if let rejection = publicationRejection(
                 of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
             ) {
@@ -193,26 +214,37 @@ extension MenuBarItemImageCache {
                 return false
             }
 
-            ledger.failedCaptureItems += sectionResult.failedCaptureItems
-            ledger.recoveredItems += sectionResult.recoveredItems
-            invalidatedTags.formUnion(sectionResult.invalidatedTags)
-            unconditionallyInvalidatedTags.formUnion(sectionResult.unconditionallyInvalidatedTags)
-
-            guard !sectionResult.captured.isEmpty else {
+            if sectionResult.captured.isEmpty {
                 // Expected for off-screen sections (e.g. hidden): live refresh
                 // (refreshImages) handles those items. Only a real concern for
                 // the visible section, check the capture logs for details.
                 MenuBarItemImageCache.diagLog.debug(
                     "captureImages: no images captured for \(section.logString) (off-screen or transient failure)"
                 )
-                continue
             }
-
-            newImages.merge(sectionResult.captured) { _, new in new }
+            pass.absorb(sectionResult)
         }
 
-        // Validated again with nothing awaited before the ledger is touched, so
-        // a pass a later section's capture outlived cannot strike or forgive.
+        return commitRecapturePass(
+            pass, admission: admission, ignoreRecentMove: ignoreRecentMove, appState: appState
+        )
+    }
+
+    /// Publishes a finished pass, or leaves the cache exactly as it was.
+    ///
+    /// Synchronous on purpose. The validity check, the failure ledger, the
+    /// invalidations and the images land with nothing awaited between them, so
+    /// no move can start after the check and before the write. A rejected pass
+    /// changes neither pixels nor bookkeeping.
+    @MainActor
+    func commitRecapturePass(
+        _ pass: CapturePass,
+        admission: CapturePublicationAdmission,
+        ignoreRecentMove: Bool,
+        appState: AppState
+    ) -> Bool {
+        guard !skipCaptureWhileScreenLocked("publishing recapture") else { return false }
+        // Images, invalidations and strikes alike go stale with the layout.
         if let rejection = publicationRejection(
             of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
         ) {
@@ -221,7 +253,13 @@ extension MenuBarItemImageCache {
             )
             return false
         }
-        commitCaptureLedger(of: ledger)
+        // Ahead of the guard below: a pass with only strikes or recoveries to
+        // report still reports them.
+        commitCaptureLedger(of: pass)
+
+        let newImages = pass.captured
+        let invalidatedTags = pass.invalidatedTags
+        let unconditionallyInvalidatedTags = pass.unconditionallyInvalidatedTags
 
         // Do NOT check Task.isCancelled here: if any captures succeeded (e.g.
         // the prewarm completed its hidden-section AX crop), we must apply them
@@ -243,237 +281,225 @@ extension MenuBarItemImageCache {
         // here and show a blank Hidden slot after a visible→hidden move.
         let assignedSnapshotTags = appState.menuBarManager.sectionController.assignedSnapshotTags
 
-        return await MainActor.run { [newImages, invalidatedTags, unconditionallyInvalidatedTags, allValidTags, assignedSnapshotTags] in
-            guard !skipCaptureWhileScreenLocked("publishing recapture") else { return false }
-            // The hop above can straddle a move; images and invalidations alike go stale with it.
-            if let rejection = publicationRejection(
-                of: admission, appState: appState, ignoreRecentMove: ignoreRecentMove
-            ) {
+        let beforeCount = capturesByTag.count
+        var didChange = false
+        // Pre-apply snapshot for the changeless-pass report below.
+        let preApplyImages = capturesByTag
+
+        // Drop priors that this pass proved unusable (incomplete crop /
+        // off-window), but keep a settled non-blank glyph when the new
+        // pass has no replacement. Clearing those priors causes "double
+        // arrow" and app-icon churn on macOS 27 when Layout opens.
+        // Ordinary concealment-proven tags skip the retention heuristic.
+        // Governable system extras can retain the last settled visible glyph.
+        var retainedPriorCount = 0
+        for tag in invalidatedTags {
+            if !unconditionallyInvalidatedTags.contains(tag),
+               newImages[tag] == nil,
+               let existing = capturesByTag[tag],
+               !existing.isEffectivelyBlank,
+               existing.pointSize.width >= Self.minimumTrustedGlyphWidth
+            {
+                retainedPriorCount += 1
+                continue
+            }
+            // Only touch the published dictionary when the tag is actually
+            // in it: removing an absent key still counts as a mutation to
+            // the observation registrar, and invalidations routinely name
+            // tags the cache never held.
+            if capturesByTag[tag] != nil {
+                removeCapture(for: tag)
+                didChange = true
+            }
+            accessTimestamps.removeValue(forKey: tag)
+        }
+        if !invalidatedTags.isEmpty {
+            let clearedCount = invalidatedTags.count - retainedPriorCount
+            if clearedCount > 0 {
                 MenuBarItemImageCache.diagLog.debug(
-                    "recaptureNow: discarding results at publication (\(String(describing: rejection)))"
+                    "recaptureNow: cleared \(clearedCount) prior image(s) for app-icon fallback"
                 )
+            }
+            if retainedPriorCount > 0 {
+                MenuBarItemImageCache.diagLog.debug(
+                    "recaptureNow: retained \(retainedPriorCount) settled prior image(s)"
+                )
+            }
+        }
+
+        // Tags with recent capture failures should keep their cached images
+        // even if the item temporarily left the item cache (e.g. a transient
+        // menu bar item whose window briefly disappeared). This prevents
+        // the ThawBar and search from showing empty icons while the item's
+        // app is still running.
+        let recentlyFailedTags = failedCapturesLock.withLock { Set($0.keys) }
+
+        // Remove images for items that no longer exist in the item cache,
+        // but preserve images for items that have recent capture failures
+        // (they may reappear shortly with a new window ID) and for
+        // section-controller-assigned items (concealed items mid-re-add).
+        // Use matchesIgnoringWindowID for non-system items so disk-loaded
+        // entries are not incorrectly evicted when their windowID is nil.
+        //
+        // Assigned back only when the filter dropped something: a
+        // same-contents reassignment still invalidates every observer.
+        let survivingImages = capturesByTag.filter { key, _ in
+            if key.isSystemItem {
+                return allValidTags.contains(key)
+                    || recentlyFailedTags.contains(key)
+                    || assignedSnapshotTags.contains(key)
+            }
+            return containsTagMatchingIgnoringWindowID(allValidTags, target: key) ||
+                containsTagMatchingIgnoringWindowID(recentlyFailedTags, target: key) ||
+                containsTagMatchingIgnoringWindowID(assignedSnapshotTags, target: key)
+        }
+        if survivingImages.count != capturesByTag.count {
+            replaceCaptures(with: survivingImages)
+        }
+
+        // Additional cleanup must preserve the same transiently valid sets
+        // as the filter above. Otherwise an assigned snapshot can survive
+        // that filter and then be evicted immediately here while its live
+        // item is between concealment and cache re-addition.
+        _ = validateAndCleanupInvalidEntries(
+            preserving: recentlyFailedTags.union(assignedSnapshotTags)
+        )
+
+        // Mark all newly captured images as most recently used
+        for tag in newImages.keys {
+            accessCounter += 1
+            accessTimestamps[tag] = accessCounter
+        }
+
+        // Remove old entries whose (namespace, title, instanceIndex) matches a
+        // new entry but with a different windowID. After a monitor reconnect,
+        // items may get new windowIDs, causing duplicate cache entries for the
+        // same logical item. Keep only the latest capture (newImages wins).
+        let newKeysSet = Set(newImages.keys)
+        let staleKeys = capturesByTag.keys.filter { oldKey in
+            guard !oldKey.isSystemItem, !newKeysSet.contains(oldKey) else {
                 return false
             }
-            let beforeCount = capturesByTag.count
-            var didChange = false
-            // Pre-apply snapshot for the changeless-pass report below.
-            let preApplyImages = capturesByTag
-
-            // Drop priors that this pass proved unusable (incomplete crop /
-            // off-window), but keep a settled non-blank glyph when the new
-            // pass has no replacement. Clearing those priors causes "double
-            // arrow" and app-icon churn on macOS 27 when Layout opens.
-            // Ordinary concealment-proven tags skip the retention heuristic.
-            // Governable system extras can retain the last settled visible glyph.
-            var retainedPriorCount = 0
-            for tag in invalidatedTags {
-                if !unconditionallyInvalidatedTags.contains(tag),
-                   newImages[tag] == nil,
-                   let existing = capturesByTag[tag],
-                   !existing.isEffectivelyBlank,
-                   existing.pointSize.width >= Self.minimumTrustedGlyphWidth
-                {
-                    retainedPriorCount += 1
-                    continue
-                }
-                // Only touch the published dictionary when the tag is actually
-                // in it: removing an absent key still counts as a mutation to
-                // the observation registrar, and invalidations routinely name
-                // tags the cache never held.
-                if capturesByTag[tag] != nil {
-                    removeCapture(for: tag)
-                    didChange = true
-                }
-                accessTimestamps.removeValue(forKey: tag)
+            return containsTagMatchingIgnoringWindowID(newKeysSet, target: oldKey)
+        }
+        for tag in staleKeys {
+            if removeCapture(for: tag) != nil {
+                didChange = true
             }
-            if !invalidatedTags.isEmpty {
-                let clearedCount = invalidatedTags.count - retainedPriorCount
-                if clearedCount > 0 {
-                    MenuBarItemImageCache.diagLog.debug(
-                        "recaptureNow: cleared \(clearedCount) prior image(s) for app-icon fallback"
-                    )
-                }
-                if retainedPriorCount > 0 {
-                    MenuBarItemImageCache.diagLog.debug(
-                        "recaptureNow: retained \(retainedPriorCount) settled prior image(s)"
-                    )
-                }
-            }
+            accessTimestamps.removeValue(forKey: tag)
+        }
 
-            // Tags with recent capture failures should keep their cached images
-            // even if the item temporarily left the item cache (e.g. a transient
-            // menu bar item whose window briefly disappeared). This prevents
-            // the ThawBar and search from showing empty icons while the item's
-            // app is still running.
-            let recentlyFailedTags = failedCapturesLock.withLock { Set($0.keys) }
-
-            // Remove images for items that no longer exist in the item cache,
-            // but preserve images for items that have recent capture failures
-            // (they may reappear shortly with a new window ID) and for
-            // section-controller-assigned items (concealed items mid-re-add).
-            // Use matchesIgnoringWindowID for non-system items so disk-loaded
-            // entries are not incorrectly evicted when their windowID is nil.
-            //
-            // Assigned back only when the filter dropped something: a
-            // same-contents reassignment still invalidates every observer.
-            let survivingImages = capturesByTag.filter { key, _ in
-                if key.isSystemItem {
-                    return allValidTags.contains(key)
-                        || recentlyFailedTags.contains(key)
-                        || assignedSnapshotTags.contains(key)
-                }
-                return containsTagMatchingIgnoringWindowID(allValidTags, target: key) ||
-                    containsTagMatchingIgnoringWindowID(recentlyFailedTags, target: key) ||
-                    containsTagMatchingIgnoringWindowID(assignedSnapshotTags, target: key)
+        // Record volatility before merging. This is the macOS 27 hook:
+        // refreshImages (the other observation point) is unreachable on
+        // 27 because the live refresh loop routes here instead. Items
+        // absent from capturesByTag are a first sighting, not a change, so they
+        // must not count against stability.
+        //
+        // Stand down entirely inside the restriction settle window: an
+        // assertion rebuild shifts every item's crop, so pixel-diffing
+        // across one marks unrelated items as changed on the same tick.
+        // Skipping is cheap; polluted tallies are not.
+        let isSettling = appState.itemManager.isWithinRestrictionReflowSettleWindow
+        if !isSettling {
+            for (tag, newImage) in newImages {
+                guard let existing = capturesByTag[tag] else { continue }
+                volatilityIndex.record(
+                    tag: tag,
+                    changed: !MenuBarItemGlyphCapture.isVisuallyEqual(existing, newImage),
+                    width: newImage.pointSize.width
+                )
             }
-            if survivingImages.count != capturesByTag.count {
-                replaceCaptures(with: survivingImages)
-            }
+        }
 
-            // Additional cleanup must preserve the same transiently valid sets
-            // as the filter above. Otherwise an assigned snapshot can survive
-            // that filter and then be evicted immediately here while its live
-            // item is between concealment and cache re-addition.
-            _ = validateAndCleanupInvalidEntries(
-                preserving: recentlyFailedTags.union(assignedSnapshotTags)
+        // Merge in the new images, preferring settled glyphs over blank
+        // or much-narrower (chevron-bleed) candidates.
+        //
+        // The merge runs on a local copy. capturesByTag is the one
+        // property every glyph consumer observes, and the live refresh
+        // loop lands here at up to 30 Hz; merging into it in place would
+        // invalidate the ThawBar, the search rows and the layout item
+        // views on every tick, including the common one where the merge
+        // kept every glyph it already had.
+        var mergedImages = capturesByTag
+        mergedImages.merge(newImages) { existing, new in
+            Self.preferredCachedImage(existing: existing, candidate: new)
+        }
+
+        // A pass that only re-proved what the cache already holds is
+        // changeless: the merge preferred the existing glyphs, and every
+        // genuine replacement is visually different from the snapshot
+        // above. Feeds the live refresh loop's back-off ladder.
+        for tag in newImages.keys {
+            guard let merged = mergedImages[tag] else { continue }
+            if !MenuBarItemGlyphCapture.isVisuallyEqual(preApplyImages[tag], merged) {
+                didChange = true
+                break
+            }
+        }
+
+        // Publish only when this pass changed something. A newly seen
+        // tag always does (its snapshot entry is nil), and a tag the
+        // invalidation loop dropped and the merge put back was already
+        // counted there. The count check covers the one gap: a tag the
+        // validity filter above evicted and this pass recaptured with
+        // the same pixels, which must still be put back.
+        if didChange || mergedImages.count != capturesByTag.count {
+            replaceCaptures(with: mergedImages)
+        }
+
+        // Prune against the item cache (every managed item, hidden ones
+        // included), NOT capturesByTag.keys: at cold start the image cache is
+        // near-empty (30 s disk TTL), and pruning on it destroyed most
+        // freshly-loaded persisted records.
+        volatilityIndex.prune(keeping: Set(appState.itemManager.managedItems.map(\.tag)))
+        volatilityIndex.logDistributionIfChanged()
+
+        // Enforce cache size limit using LRU eviction, but never evict
+        // items that still exist in the menu bar (valid item tags).
+        // This prevents thrashing the cache for visible items when
+        // many transient items come and go (e.g. monitor hotplug).
+        if capturesByTag.count > Self.maxCacheSize {
+            let protectedTags = allValidTags
+            let excessCount = capturesByTag.count - Self.maxCacheSize
+            let tagsToRemove = leastRecentlyUsedTags(
+                count: excessCount,
+                excluding: protectedTags
             )
 
-            // Mark all newly captured images as most recently used
-            for tag in newImages.keys {
-                accessCounter += 1
-                accessTimestamps[tag] = accessCounter
-            }
-
-            // Remove old entries whose (namespace, title, instanceIndex) matches a
-            // new entry but with a different windowID. After a monitor reconnect,
-            // items may get new windowIDs, causing duplicate cache entries for the
-            // same logical item. Keep only the latest capture (newImages wins).
-            let newKeysSet = Set(newImages.keys)
-            let staleKeys = capturesByTag.keys.filter { oldKey in
-                guard !oldKey.isSystemItem, !newKeysSet.contains(oldKey) else {
-                    return false
-                }
-                return containsTagMatchingIgnoringWindowID(newKeysSet, target: oldKey)
-            }
-            for tag in staleKeys {
-                if removeCapture(for: tag) != nil {
-                    didChange = true
-                }
+            for tag in tagsToRemove {
+                removeCapture(for: tag)
                 accessTimestamps.removeValue(forKey: tag)
             }
 
-            // Record volatility before merging. This is the macOS 27 hook:
-            // refreshImages (the other observation point) is unreachable on
-            // 27 because the live refresh loop routes here instead. Items
-            // absent from capturesByTag are a first sighting, not a change, so they
-            // must not count against stability.
-            //
-            // Stand down entirely inside the restriction settle window: an
-            // assertion rebuild shifts every item's crop, so pixel-diffing
-            // across one marks unrelated items as changed on the same tick.
-            // Skipping is cheap; polluted tallies are not.
-            let isSettling = appState.itemManager.isWithinRestrictionReflowSettleWindow
-            if !isSettling {
-                for (tag, newImage) in newImages {
-                    guard let existing = capturesByTag[tag] else { continue }
-                    volatilityIndex.record(
-                        tag: tag,
-                        changed: !MenuBarItemGlyphCapture.isVisuallyEqual(existing, newImage),
-                        width: newImage.pointSize.width
-                    )
-                }
-            }
-
-            // Merge in the new images, preferring settled glyphs over blank
-            // or much-narrower (chevron-bleed) candidates.
-            //
-            // The merge runs on a local copy. capturesByTag is the one
-            // property every glyph consumer observes, and the live refresh
-            // loop lands here at up to 30 Hz; merging into it in place would
-            // invalidate the ThawBar, the search rows and the layout item
-            // views on every tick, including the common one where the merge
-            // kept every glyph it already had.
-            var mergedImages = capturesByTag
-            mergedImages.merge(newImages) { existing, new in
-                Self.preferredCachedImage(existing: existing, candidate: new)
-            }
-
-            // A pass that only re-proved what the cache already holds is
-            // changeless: the merge preferred the existing glyphs, and every
-            // genuine replacement is visually different from the snapshot
-            // above. Feeds the live refresh loop's back-off ladder.
-            for tag in newImages.keys {
-                guard let merged = mergedImages[tag] else { continue }
-                if !MenuBarItemGlyphCapture.isVisuallyEqual(preApplyImages[tag], merged) {
-                    didChange = true
-                    break
-                }
-            }
-
-            // Publish only when this pass changed something. A newly seen
-            // tag always does (its snapshot entry is nil), and a tag the
-            // invalidation loop dropped and the merge put back was already
-            // counted there. The count check covers the one gap: a tag the
-            // validity filter above evicted and this pass recaptured with
-            // the same pixels, which must still be put back.
-            if didChange || mergedImages.count != capturesByTag.count {
-                replaceCaptures(with: mergedImages)
-            }
-
-            // Prune against the item cache (every managed item, hidden ones
-            // included), NOT capturesByTag.keys: at cold start the image cache is
-            // near-empty (30 s disk TTL), and pruning on it destroyed most
-            // freshly-loaded persisted records.
-            volatilityIndex.prune(keeping: Set(appState.itemManager.managedItems.map(\.tag)))
-            volatilityIndex.logDistributionIfChanged()
-
-            // Enforce cache size limit using LRU eviction, but never evict
-            // items that still exist in the menu bar (valid item tags).
-            // This prevents thrashing the cache for visible items when
-            // many transient items come and go (e.g. monitor hotplug).
-            if capturesByTag.count > Self.maxCacheSize {
-                let protectedTags = allValidTags
-                let excessCount = capturesByTag.count - Self.maxCacheSize
-                let tagsToRemove = leastRecentlyUsedTags(
-                    count: excessCount,
-                    excluding: protectedTags
-                )
-
-                for tag in tagsToRemove {
-                    removeCapture(for: tag)
-                    accessTimestamps.removeValue(forKey: tag)
-                }
-
-                if !tagsToRemove.isEmpty {
-                    MenuBarItemImageCache.diagLog.info(
-                        "LRU cache eviction: removed \(tagsToRemove.count) least recently used images (\(protectedTags.count) protected)"
-                    )
-                }
-            }
-
-            // Remove stale timestamps for images that no longer exist
-            accessTimestamps = accessTimestamps.filter { capturesByTag.keys.contains($0.key) }
-
-            let afterCount = capturesByTag.count
-            let finalAccessOrderCount = accessTimestamps.count
-            let totalRemoved = beforeCount - afterCount
-
-            // Log cache status for monitoring (verbose only when needed)
-            if afterCount > 30 || totalRemoved > 0 {
+            if !tagsToRemove.isEmpty {
                 MenuBarItemImageCache.diagLog.info(
-                    "Image cache: \(afterCount) images, LRU order: \(finalAccessOrderCount) entries (removed \(totalRemoved) stale+invalid images)"
+                    "LRU cache eviction: removed \(tagsToRemove.count) least recently used images (\(protectedTags.count) protected)"
                 )
             }
-
-            // Warning if cache and access order are out of sync
-            if afterCount != finalAccessOrderCount {
-                MenuBarItemImageCache.diagLog.warning(
-                    "Cache inconsistency: \(afterCount) cached images vs \(finalAccessOrderCount) LRU entries"
-                )
-            }
-
-            return didChange
         }
+
+        // Remove stale timestamps for images that no longer exist
+        accessTimestamps = accessTimestamps.filter { capturesByTag.keys.contains($0.key) }
+
+        let afterCount = capturesByTag.count
+        let finalAccessOrderCount = accessTimestamps.count
+        let totalRemoved = beforeCount - afterCount
+
+        // Log cache status for monitoring (verbose only when needed)
+        if afterCount > 30 || totalRemoved > 0 {
+            MenuBarItemImageCache.diagLog.info(
+                "Image cache: \(afterCount) images, LRU order: \(finalAccessOrderCount) entries (removed \(totalRemoved) stale+invalid images)"
+            )
+        }
+
+        // Warning if cache and access order are out of sync
+        if afterCount != finalAccessOrderCount {
+            MenuBarItemImageCache.diagLog.warning(
+                "Cache inconsistency: \(afterCount) cached images vs \(finalAccessOrderCount) LRU entries"
+            )
+        }
+
+        return didChange
     }
 
     /// Restoration action after temporarily revealing a section for prewarm capture.
@@ -793,9 +819,20 @@ extension MenuBarItemImageCache {
     /// to the app icon instead of a stale crop. The overlay keeps whatever it
     /// holds: its strip is on screen, and swapping a glyph for a fallback icon
     /// mid-pass is a visible regression.
-    private enum RevealMissPolicy {
+    enum RevealMissPolicy {
         case keepExisting
         case dropUntrustedEntries
+    }
+
+    /// The live bar as a grouped reveal reads it, so a test can script the
+    /// reveal's settle and its screenshot without a screen.
+    struct RevealCaptureSources {
+        /// The revealed members that reached stable bounds, paired with the
+        /// request they answer. See waitForRevealedItems(matching:displayID:).
+        let settledItems: @MainActor ([MenuBarItem]) async -> [(requested: MenuBarItem, live: MenuBarItem)]
+        /// The pause between stable AX bounds and a fully rendered glyph.
+        let renderSettle: @MainActor () async -> Void
+        let reader: any MenuBarCaptureReading
     }
 
     /// Reveals concealed items a few at a time and captures each group from
@@ -825,12 +862,9 @@ extension MenuBarItemImageCache {
               !skipCaptureWhileScreenLocked("grouped reveal capture"),
               let appState else { return }
 
-        // The temporary reveals below never bump the layout revision, so a
-        // change observed against this admission is a real move or display switch.
-        let admission = CapturePublicationPolicy.admit(
-            layout: appState.itemManager.layoutPublication,
-            displayID: appState.itemManager.itemDisplayID
-        )
+        // Before the first await: the display the caller resolved these items
+        // and displayID against. Every batch answers to this one.
+        let admittedDisplayID = appState.itemManager.itemDisplayID
 
         // Hold the capture service open across every batch, the way the live
         // refresh loop holds it across every tick. Each batch takes a hosting
@@ -852,9 +886,41 @@ extension MenuBarItemImageCache {
         let batchSize = Self.revealBatchSize(
             hasNotch: NSScreen.screen(for: displayID)?.hasNotch ?? false
         )
-        for batch in stride(from: 0, to: items.count, by: batchSize)
-            .map({ Array(items[$0 ..< min($0 + batchSize, items.count)]) })
-        {
+        await captureRevealBatches(
+            stride(from: 0, to: items.count, by: batchSize)
+                .map { Array(items[$0 ..< min($0 + batchSize, items.count)]) },
+            controller: controller,
+            displayID: displayID,
+            admittedDisplayID: admittedDisplayID,
+            scale: scale,
+            missPolicy: missPolicy,
+            appState: appState,
+            sources: RevealCaptureSources(
+                settledItems: { await self.waitForRevealedItems(matching: $0, displayID: displayID) },
+                renderSettle: { try? await Task.sleep(for: Constants.MenuBarTuning.layoutPrewarmRenderSettle) },
+                reader: LiveMenuBarCaptureReader()
+            )
+        )
+    }
+
+    /// The reveal loop of captureConcealedItemsByGroupedReveal(_:controller:displayID:scale:missPolicy:),
+    /// one batch after another, stopping at the first batch that may not publish.
+    ///
+    /// admittedDisplayID is the item cache's display when the caller chose
+    /// displayID. It is not re-read per batch: pixels are taken from
+    /// displayID whatever happens, so a display switch while a reveal settles
+    /// must reject the batch rather than become its new baseline.
+    func captureRevealBatches(
+        _ batches: [[MenuBarItem]],
+        controller: any MenuBarSectionControlling,
+        displayID: CGDirectDisplayID,
+        admittedDisplayID: CGDirectDisplayID?,
+        scale: CGFloat,
+        missPolicy: RevealMissPolicy,
+        appState: AppState,
+        sources: RevealCaptureSources
+    ) async {
+        for batch in batches {
             guard !Task.isCancelled, !skipCaptureWhileScreenLocked("revealing capture batch") else { return }
 
             for item in batch {
@@ -866,10 +932,7 @@ extension MenuBarItemImageCache {
                 }
             }
 
-            let revealed = await waitForRevealedItems(
-                matching: batch,
-                displayID: displayID
-            )
+            let revealed = await sources.settledItems(batch)
             guard !skipCaptureWhileScreenLocked("capture reveal completed") else { return }
             guard !revealed.isEmpty else { continue }
 
@@ -877,8 +940,28 @@ extension MenuBarItemImageCache {
             // the revealed glyphs; wait one render settle so the screenshot
             // captures fully-rendered icons. One settle for the group, since
             // they were revealed together.
-            try? await Task.sleep(for: Constants.MenuBarTuning.layoutPrewarmRenderSettle)
+            await sources.renderSettle()
             guard !Task.isCancelled, !skipCaptureWhileScreenLocked("settled capture batch") else { return }
+
+            // Admitted here, after the reveal and its settle, with nothing
+            // awaited before the screenshot. Rebuilding the restriction for the
+            // reveal (and for the previous batch's conceal) moves the layout
+            // generation by itself, so an admission taken any earlier would
+            // reject every batch. From here on a change is a real move.
+            let admission = CapturePublicationPolicy.admit(
+                layout: appState.itemManager.layoutPublication,
+                displayID: admittedDisplayID
+            )
+            // A move already running, or a display that switched while the
+            // reveal settled: do not screenshot a bar this batch cannot publish.
+            if let rejection = publicationRejection(
+                of: admission, appState: appState, ignoreRecentMove: true, isRecapturePass: false
+            ) {
+                MenuBarItemImageCache.diagLog.debug(
+                    "grouped reveal capture: not capturing batch, stopping (\(String(describing: rejection)))"
+                )
+                return
+            }
 
             // One hosting screenshot and one strip screenshot for the whole
             // group: axBoundsCapture already crops each item out of the same
@@ -894,69 +977,93 @@ extension MenuBarItemImageCache {
                 validateFreshBounds: true,
                 // This path just revealed the items itself and waited for
                 // their live AX elements, so none of them is concealed here.
-                concealedIdentifiers: []
+                concealedIdentifiers: [],
+                using: sources.reader
             )
 
-            guard !skipCaptureWhileScreenLocked("publishing capture batch") else { return }
-            if let rejection = publicationRejection(
-                of: admission, appState: appState, ignoreRecentMove: true, isRecapturePass: false
-            ) {
-                MenuBarItemImageCache.diagLog.debug(
-                    "grouped reveal capture: discarding batch and stopping (\(String(describing: rejection)))"
-                )
-                return
-            }
-            commitCaptureLedger(of: captureResult)
+            guard commitRevealedBatch(
+                captureResult,
+                revealed: revealed,
+                admission: admission,
+                missPolicy: missPolicy,
+                appState: appState
+            ) else { return }
+        }
+    }
 
-            // A cancel, usually the Thaw Bar closing, also drops the strip's capture
-            // ticket, so the misses after it say nothing about the items.
-            let stoppedEarly = Task.isCancelled
-            if missPolicy == .dropUntrustedEntries, !stoppedEarly {
-                for tag in captureResult.invalidatedTags {
-                    if !captureResult.unconditionallyInvalidatedTags.contains(tag),
-                       let existing = capturesByTag[tag],
-                       Self.isTrustedGlyph(existing)
-                    {
-                        continue
-                    }
+    /// Publishes one revealed batch, or leaves the cache exactly as it was.
+    /// False when the batch was rejected.
+    ///
+    /// Synchronous for the reason commitRecapturePass(_:admission:ignoreRecentMove:appState:)
+    /// is: nothing is awaited between the validity check and the ledger, the
+    /// dropped misses and the images.
+    func commitRevealedBatch(
+        _ captureResult: CapturePass,
+        revealed: [(requested: MenuBarItem, live: MenuBarItem)],
+        admission: CapturePublicationAdmission,
+        missPolicy: RevealMissPolicy,
+        appState: AppState
+    ) -> Bool {
+        guard !skipCaptureWhileScreenLocked("publishing capture batch") else { return false }
+        if let rejection = publicationRejection(
+            of: admission, appState: appState, ignoreRecentMove: true, isRecapturePass: false
+        ) {
+            MenuBarItemImageCache.diagLog.debug(
+                "grouped reveal capture: discarding batch and stopping (\(String(describing: rejection)))"
+            )
+            return false
+        }
+        commitCaptureLedger(of: captureResult)
+
+        // A cancel, usually the Thaw Bar closing, also drops the strip's capture
+        // ticket, so the misses after it say nothing about the items.
+        let stoppedEarly = Task.isCancelled
+        if missPolicy == .dropUntrustedEntries, !stoppedEarly {
+            for tag in captureResult.invalidatedTags {
+                if !captureResult.unconditionallyInvalidatedTags.contains(tag),
+                   let existing = capturesByTag[tag],
+                   Self.isTrustedGlyph(existing)
+                {
+                    continue
+                }
+                removeCapture(for: tag)
+                accessTimestamps.removeValue(forKey: tag)
+            }
+        }
+
+        for pair in revealed {
+            // The capture result is keyed by the fresh AX item, while the
+            // cache is keyed by the concealed snapshot the caller holds.
+            let tag = pair.requested.tag
+            guard let image = captureResult.captured[pair.live.tag] else {
+                // A miss never wipes a settled glyph. Under the dropping
+                // policy a blank or chevron-width entry goes, so a failed
+                // reveal cannot leave a stale thumbnail behind.
+                if missPolicy == .dropUntrustedEntries, !stoppedEarly,
+                   let existing = capturesByTag[tag],
+                   !Self.isTrustedGlyph(existing)
+                {
                     removeCapture(for: tag)
                     accessTimestamps.removeValue(forKey: tag)
                 }
+                continue
             }
-
-            for pair in revealed {
-                // The capture result is keyed by the fresh AX item, while the
-                // cache is keyed by the concealed snapshot the caller holds.
-                let tag = pair.requested.tag
-                guard let image = captureResult.captured[pair.live.tag] else {
-                    // A miss never wipes a settled glyph. Under the dropping
-                    // policy a blank or chevron-width entry goes, so a failed
-                    // reveal cannot leave a stale thumbnail behind.
-                    if missPolicy == .dropUntrustedEntries, !stoppedEarly,
-                       let existing = capturesByTag[tag],
-                       !Self.isTrustedGlyph(existing)
-                    {
-                        removeCapture(for: tag)
-                        accessTimestamps.removeValue(forKey: tag)
-                    }
+            if let cachedImage = capturesByTag[tag] {
+                let preferred = Self.preferredCachedImage(
+                    existing: cachedImage,
+                    candidate: image
+                )
+                if MenuBarItemGlyphCapture.isVisuallyEqual(preferred, cachedImage) {
                     continue
                 }
-                if let cachedImage = capturesByTag[tag] {
-                    let preferred = Self.preferredCachedImage(
-                        existing: cachedImage,
-                        candidate: image
-                    )
-                    if MenuBarItemGlyphCapture.isVisuallyEqual(preferred, cachedImage) {
-                        continue
-                    }
-                    setCapture(preferred, for: tag)
-                } else {
-                    setCapture(image, for: tag)
-                }
-                accessCounter += 1
-                accessTimestamps[tag] = accessCounter
+                setCapture(preferred, for: tag)
+            } else {
+                setCapture(image, for: tag)
             }
+            accessCounter += 1
+            accessTimestamps[tag] = accessCounter
         }
+        return true
     }
 
     /// Briefly reveals concealed macOS 27 sections so their live glyphs can be

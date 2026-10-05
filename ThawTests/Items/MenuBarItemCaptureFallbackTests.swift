@@ -483,49 +483,16 @@ struct MenuBarItemCaptureFallbackTests {
         extraGlyphXs: [CGFloat] = [],
         busyBackground: Bool = false
     ) throws -> ScreenCapture.MenuBarHostingCapture {
-        let frame = CGRect(x: 0, y: 0, width: 1470, height: 33)
-        let context = try #require(CGContext(
-            data: nil,
-            width: 2940,
-            height: 66,
-            bitsPerComponent: 8,
-            bytesPerRow: 2940 * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ))
-        context.translateBy(x: 0, y: 66)
-        context.scaleBy(x: 2, y: -2)
-        if opaque {
-            context.setFillColor(CGColor(gray: 0.8, alpha: 1))
-            context.fill(frame)
-        }
-        if busyBackground {
-            var seed: UInt32 = 0x9E37_79B9
-            func nextComponent() -> CGFloat {
-                seed = seed &* 1_664_525 &+ 1_013_904_223
-                return CGFloat((seed >> 16) & 0xFF) / 255
-            }
-            for y in 0 ..< 24 {
-                for x in 0 ..< 24 {
-                    context.setFillColor(CGColor(
-                        red: nextComponent(), green: nextComponent(), blue: nextComponent(), alpha: 1
-                    ))
-                    context.fill(CGRect(x: 1000 + CGFloat(x), y: 4.5 + CGFloat(y), width: 1, height: 1))
-                }
-            }
-        }
-        if glyph {
-            context.setFillColor(CGColor(gray: 0, alpha: 1))
-            for x in [glyphX] + extraGlyphXs {
-                context.fill(CGRect(x: x, y: 12, width: 8, height: 10))
-            }
-        }
-        return try ScreenCapture.MenuBarHostingCapture(image: #require(context.makeImage()), windowFrame: frame, scale: 2)
+        try CaptureFixture.barCapture(
+            opaque: opaque,
+            glyphXs: glyph ? [glyphX] + extraGlyphXs : [],
+            busyBackground: busyBackground
+        )
     }
 }
 
 /// Holds one fixture source mid-acquisition until the test releases it.
-private actor CaptureGate {
+actor CaptureGate {
     private var arrived = false
     private var released = false
     private var arrivalWaiter: CheckedContinuation<Void, Never>?
@@ -551,7 +518,7 @@ private actor CaptureGate {
     }
 }
 
-private actor CaptureFixture: MenuBarCaptureReading {
+actor CaptureFixture: MenuBarCaptureReading {
     enum Source: Equatable, Sendable {
         case hosting, barWindow, strip
     }
@@ -635,6 +602,7 @@ private actor CaptureFixture: MenuBarCaptureReading {
         captures.append(.strip)
         inventoryReadsAtCapture.append(inventoryReadCount)
         onCapture(.strip)
+        await gates[.strip]?.arriveAndWait()
         return strip
     }
 
@@ -682,5 +650,51 @@ private actor CaptureFixture: MenuBarCaptureReading {
             }
             return (bounds, ambiguous)
         }
+    }
+}
+
+extension CaptureFixture {
+    /// A 1470×33pt bar at 2x with an 8×10pt glyph drawn at each of glyphXs.
+    static func barCapture(
+        opaque: Bool,
+        glyphXs: [CGFloat] = [1008],
+        busyBackground: Bool = false
+    ) throws -> ScreenCapture.MenuBarHostingCapture {
+        let frame = CGRect(x: 0, y: 0, width: 1470, height: 33)
+        let context = try #require(CGContext(
+            data: nil,
+            width: 2940,
+            height: 66,
+            bitsPerComponent: 8,
+            bytesPerRow: 2940 * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.translateBy(x: 0, y: 66)
+        context.scaleBy(x: 2, y: -2)
+        if opaque {
+            context.setFillColor(CGColor(gray: 0.8, alpha: 1))
+            context.fill(frame)
+        }
+        if busyBackground {
+            var seed: UInt32 = 0x9E37_79B9
+            func nextComponent() -> CGFloat {
+                seed = seed &* 1_664_525 &+ 1_013_904_223
+                return CGFloat((seed >> 16) & 0xFF) / 255
+            }
+            for y in 0 ..< 24 {
+                for x in 0 ..< 24 {
+                    context.setFillColor(CGColor(
+                        red: nextComponent(), green: nextComponent(), blue: nextComponent(), alpha: 1
+                    ))
+                    context.fill(CGRect(x: 1000 + CGFloat(x), y: 4.5 + CGFloat(y), width: 1, height: 1))
+                }
+            }
+        }
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        for x in glyphXs {
+            context.fill(CGRect(x: x, y: 12, width: 8, height: 10))
+        }
+        return try ScreenCapture.MenuBarHostingCapture(image: #require(context.makeImage()), windowFrame: frame, scale: 2)
     }
 }
