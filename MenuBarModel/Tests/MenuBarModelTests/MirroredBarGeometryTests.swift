@@ -55,6 +55,50 @@ struct MirroredBarGeometryTests {
         #expect(rebased.minY == -1080)
     }
 
+    /// A notched built-in display whose bar overflowed, below an external one
+    /// with room to spare, as measured.
+    private static let builtIn = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+    private static let external = CGRect(x: 56, y: -1080, width: 1920, height: 1080)
+    private static let displays = [builtIn, external]
+    private static let chevronMinX: CGFloat = 1057.5
+    private static let notchMaxX: CGFloat = 956.5
+
+    @Test("A frame mirrored to the leading side of the lane is not drawn there", arguments: [chevronMinX, notchMaxX])
+    func overflowedMirrorIsNotDrawn(laneMinX: CGFloat) {
+        // A 179 pt text item on the external bar mirrors to x≈903 on the built-in one.
+        let reported = CGRect(x: 1151, y: -1076.5, width: 179, height: 24)
+        #expect(MirroredBarGeometry.frame(reported, on: Self.builtIn, displayBounds: Self.displays).minX == 903)
+        #expect(MirroredBarGeometry.drawnFrame(
+            reported, on: Self.builtIn, displayBounds: Self.displays, laneMinX: laneMinX
+        ) == nil)
+    }
+
+    @Test("An overflowed item's own frame is not drawn either")
+    func overflowedNativeFrameIsNotDrawn() {
+        // Reported by the built-in bar itself, starting behind the notch and
+        // running under the chevron.
+        let reported = CGRect(x: 887, y: 4.5, width: 188, height: 24)
+        #expect(MirroredBarGeometry.drawnFrame(
+            reported, on: Self.builtIn, displayBounds: Self.displays, laneMinX: Self.chevronMinX
+        ) == nil)
+    }
+
+    @Test("Frames inside the lane, and every frame without one, are kept")
+    func drawnFramesAreKept() {
+        let trailingChevron = CGRect(x: 1075, y: 4.5, width: 30, height: 24)
+        #expect(MirroredBarGeometry.drawnFrame(
+            trailingChevron, on: Self.builtIn, displayBounds: Self.displays, laneMinX: Self.chevronMinX
+        ) == trailingChevron)
+        let mirrored = CGRect(x: 1500, y: -1076.5, width: 30, height: 24)
+        #expect(MirroredBarGeometry.drawnFrame(
+            mirrored, on: Self.builtIn, displayBounds: Self.displays, laneMinX: Self.chevronMinX
+        ) == MirroredBarGeometry.frame(mirrored, on: Self.builtIn, displayBounds: Self.displays))
+        let wide = CGRect(x: 1151, y: -1076.5, width: 179, height: 24)
+        #expect(MirroredBarGeometry.drawnFrame(
+            wide, on: Self.external, displayBounds: Self.displays, laneMinX: nil
+        ) == wide)
+    }
+
     @Test("Equal-width displays reduce to the display origin offset")
     func equalWidthsOffsetByOrigin() {
         let right = CGRect(x: 1920, y: 0, width: 1920, height: 1080)
