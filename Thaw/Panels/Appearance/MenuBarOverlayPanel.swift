@@ -1087,12 +1087,9 @@ private final class MenuBarOverlayPanelContentView: NSView {
                 rect.fill()
             }
         case .gradient:
-            if let tintGradient = configuration.tintGradient
+            configuration.tintGradient
                 .withAlpha(configuration.tintOpacity)
-                .nsGradient(using: .displayP3)
-            {
-                tintGradient.draw(in: rect, angle: 0)
-            }
+                .draw(in: rect, using: .displayP3)
         case .adaptive:
             if let colorInfo = averageColorInfo,
                let color = NSColor(cgColor: colorInfo.color)?
@@ -1331,12 +1328,9 @@ private final class MenuBarOverlayPanelContentView: NSView {
                 rect.fill()
             }
         case .gradient:
-            if let gradient = configuration.backgroundGradient
+            configuration.backgroundGradient
                 .withAlpha(configuration.backgroundOpacity)
-                .nsGradient(using: .displayP3)
-            {
-                gradient.draw(in: rect, angle: 0)
-            }
+                .draw(in: rect, using: .displayP3)
         case .glass:
             break
         case .adaptive:
