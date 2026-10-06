@@ -140,9 +140,9 @@ nonisolated enum MenuBarItemAXProvider {
             }
 
             let namespace = namespace(for: runningApp)
-            // The native overflow chevron, identified by AXOverflowButton (not
-            // its localized title) plus the memo's last-seen frames. Either
-            // match drops the child.
+            // The native overflow chevron, identified by AXOverflowButton or its
+            // AXButton role (not its localized title) plus the memo's last-seen
+            // frames. Any match drops the child.
             let overflowControl: (elements: [AXSwift6.UIElement], frames: [CGRect]) = namespace == .menuBarAgent
                 ? nativeOverflowControlSignature(bar: bar, on: display)
                 : ([], [])
@@ -160,14 +160,14 @@ nonisolated enum MenuBarItemAXProvider {
                 }
                 // One message for all five attributes costs the same as the
                 // frame alone.
-                let attributes = AXHelpers.menuBarChildAttributes(for: child)
+                let attributes = AXHelpers.menuBarChildAttributes(for: child, includingRole: namespace == .menuBarAgent)
                 // Skip incidental children (open popovers / panels).
                 guard let frame = Self.itemFrame(attributes.frame, maximumHeight: itemHeightCeiling) else {
                     continue
                 }
                 // No per-display filter: macOS 27 renders one status-item set on
                 // every bar, with frames stated against a single bar's layout.
-                if overflowControl.elements.contains(child)
+                if overflowControl.elements.contains(child) || namespace == .menuBarAgent && AXPrimitives.isMenuBarAgentOverflowRole(attributes.role)
                     || overflowControl.frames.contains(where: { Self.frame(frame, matches: $0) })
                 {
                     diagLog.debug("menuBarItems: skipping native overflow control (structural) frame=\(frame)")
@@ -590,7 +590,7 @@ nonisolated enum MenuBarItemAXProvider {
         let itemHeightCeiling = maxItemHeight(menuBarHeight: NSScreen.tallestCachedMenuBarHeight)
 
         for (childIndex, child) in children.enumerated() {
-            let attributes = AXHelpers.menuBarChildAttributes(for: child)
+            let attributes = AXHelpers.menuBarChildAttributes(for: child, includingRole: namespace == .menuBarAgent)
             let diagnosticIdentity = attributes.identifier?.nonEmpty
                 ?? attributes.accessibilityDescription?.nonEmpty
                 ?? "child-\(childIndex)"
@@ -619,7 +619,7 @@ nonisolated enum MenuBarItemAXProvider {
             if let displayBounds, !Self.frame(frame, isWithin: displayBounds) {
                 continue
             }
-            if overflowControl.elements.contains(child)
+            if overflowControl.elements.contains(child) || namespace == .menuBarAgent && AXPrimitives.isMenuBarAgentOverflowRole(attributes.role)
                 || overflowControl.frames.contains(where: { Self.frame(frame, matches: $0) })
             {
                 continue
@@ -1096,7 +1096,7 @@ nonisolated enum MenuBarItemAXProvider {
         }
 
         var seenFrames = Set<CGRect>()
-        let frames: [CGRect] = (attributedControls + labeledControls).compactMap { control -> CGRect? in
+        let frames: [CGRect] = (attributedControls + AXHelpers.overflowButtons(among: children) + labeledControls).compactMap { control -> CGRect? in
             guard let frame = AXHelpers.frame(for: control),
                   !frame.isNull,
                   !frame.isEmpty,

@@ -213,6 +213,14 @@ public enum AXPrimitives {
         return extrasMenuBar(pid: pid, messagingTimeout: messagingTimeout)
     }
 
+    /// Whether a direct child of MenuBarAgent's extras bar with this AXRole is
+    /// the overflow chevron. MenuBarAgent hosts every real status item in an
+    /// AXGroup and the chevron alone as a bare AXButton. Roles are never
+    /// localized, so this holds whatever language the bar is drawn in.
+    public static func isMenuBarAgentOverflowRole(_ role: String?) -> Bool {
+        role == kAXButtonRole
+    }
+
     /// The extras menu bar of one application.
     public static func extrasMenuBar(
         pid: pid_t,

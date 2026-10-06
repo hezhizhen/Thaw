@@ -58,11 +58,14 @@ nonisolated enum AXHelpers {
         var children: [UIElement] = []
     }
 
-    static func menuBarChildAttributes(for element: UIElement) -> MenuBarChildAttributes {
-        let values = element.attributeValues([
+    /// Pass includingRole only for MenuBarAgent's bar. The walks also read Thaw's own bar off the
+    /// main thread, where AppKit answers in-process and is not thread-safe, so that read stays minimal.
+    static func menuBarChildAttributes(for element: UIElement, includingRole: Bool = false) -> MenuBarChildAttributes {
+        let values = element.attributeValues((includingRole ? [.role] : []) + [
             .frame, .identifier, .title, .description, .children,
         ])
         return MenuBarChildAttributes(
+            role: values[.role] as? String,
             frame: values[.frame] as? CGRect,
             identifier: values[.identifier] as? String,
             title: values[.title] as? String,
@@ -121,6 +124,12 @@ nonisolated enum AXHelpers {
     /// an attribute rather than as an ordinary child.
     static func overflowButton(for element: UIElement) -> UIElement? {
         try? element.attribute(.overflowButton)
+    }
+
+    /// The children of MenuBarAgent's extras bar that are its overflow
+    /// chevron by role. See AXPrimitives.isMenuBarAgentOverflowRole(_:).
+    static func overflowButtons(among children: [UIElement]) -> [UIElement] {
+        children.filter { AXPrimitives.isMenuBarAgentOverflowRole(roleString(for: $0)) }
     }
 
     /// Whether the element advertises AXOverflowButton, or nil when its
