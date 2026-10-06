@@ -95,6 +95,8 @@ enum AXReader {
                 continue
             }
             let overflow = AXPrimitives.elementAttribute(bar, "AXOverflowButton")
+            // Builds without AXOverflowButton still mark the chevron by its role.
+            let isMenuBarAgent = app.bundleIdentifier == "com.apple.MenuBarAgent"
             let children = AXPrimitives.children(of: bar)
 
             for child in children {
@@ -129,7 +131,10 @@ enum AXReader {
                         title: AXPrimitives.stringAttribute(child, kAXTitleAttribute),
                         help: AXPrimitives.stringAttribute(child, kAXHelpAttribute),
                         frame: frame,
-                        isOverflowControl: overflow.map { CFEqual($0, child) } ?? false,
+                        isOverflowControl: overflow.map { CFEqual($0, child) } ?? false
+                            || isMenuBarAgent && AXPrimitives.isMenuBarAgentOverflowRole(
+                                AXPrimitives.stringAttribute(child, kAXRoleAttribute)
+                            ),
                         childIdentifier: childElements
                             .compactMap { stableIdentifier(AXPrimitives.stringAttribute($0, kAXIdentifierAttribute)) }
                             .first,

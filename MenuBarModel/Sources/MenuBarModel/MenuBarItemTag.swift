@@ -301,7 +301,7 @@ public struct MenuBarItemTag: Hashable, CustomStringConvertible, Sendable, Codab
     public static let nativeOverflowControlAXAttributeTitle = "AXOverflowButton"
 
     /// Localized title backstop for stale keys, fixtures, or failed AX reads; never rely on titles alone.
-    /// AX normally excludes overflow by its AXOverflowButton element or matching frame. See menuBarAgentOverflowTitles.
+    /// AX normally excludes overflow by its AXOverflowButton element, AXButton role or matching frame. See menuBarAgentOverflowTitles.
     static let nativeOverflowControlKnownTitles: Set<String> = menuBarAgentOverflowTitles.union([
         "Show Hidden Menu Bar Items",
     ])

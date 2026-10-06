@@ -31,7 +31,7 @@ public struct AXItemObservation: Codable, Sendable, Equatable {
     public var help: String?
     /// The item's frame in screen coordinates.
     public var frame: CGRect
-    /// Whether the element is the extras bar's AXOverflowButton, not a real item.
+    /// Whether the element is MenuBarAgent's overflow chevron, not a real item.
     public var isOverflowControl: Bool
     /// The nested status-bar button's AXIdentifier, when the item's own
     /// container publishes none. Some apps put the stable identity on the
