@@ -18,6 +18,9 @@ outputs:
   commit:
     description: Full commit SHA that was checked out
     value: ${{ steps.meta.outputs.commit }}
+  source-dir:
+    description: Directory holding the Thaw 2 sources (legacy, or . for tags from before the move)
+    value: ${{ steps.meta.outputs.source_dir }}
   project-name:
     description: Xcode project to build
     value: ${{ steps.meta.outputs.project_name }}
@@ -62,7 +65,13 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        project_name="Thaw.xcodeproj"
+        # Thaw 2 lives under legacy/ since Thaw 3 took the repository root;
+        # tags from before that move still have it at the top level.
+        source_dir="."
+        if [[ -d legacy/Thaw.xcodeproj ]]; then
+          source_dir="legacy"
+        fi
+        project_name="$source_dir/Thaw.xcodeproj"
         # Read the checked-out app's target, not the dispatch branch's settings
         # or a hard-coded OS version that could lower a newer release's minimum.
         project_json="$RUNNER_TEMP/thaw-project.json"
@@ -81,6 +90,7 @@ runs:
         commit="$(git rev-parse HEAD)"
         {
           echo "commit=$commit"
+          echo "source_dir=$source_dir"
           echo "project_name=$project_name"
           echo "deployment_target=$deployment_target"
         } >> "$GITHUB_OUTPUT"

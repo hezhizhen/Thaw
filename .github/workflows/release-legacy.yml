@@ -1,4 +1,4 @@
-name: Release
+name: Release (Thaw 2)
 
 # Manual only; pushing a tag never releases. Drafts until attach-provenance
 # adds the attestations. The Sparkle feed lives in thaw-app/updates.
@@ -96,11 +96,11 @@ jobs:
       - name: Checkout build actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: legacy/.github/actions
 
       - name: Checkout source
         id: source
-        uses: ./.github/actions/checkout-source
+        uses: ./legacy/.github/actions/checkout-source
         with:
           ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
@@ -115,6 +115,11 @@ jobs:
 
           if [[ ! "$TAG_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._]+)?$ ]]; then
             echo "Invalid tag name format. Must be in the form 1.2.3 or 1.2.3-rc.1"
+            exit 1
+          fi
+
+          if [[ "$TAG_NAME" != 2.* ]]; then
+            echo "::error::Release (Thaw 2) publishes 2.x tags only; use Release for $TAG_NAME."
             exit 1
           fi
 
@@ -159,8 +164,8 @@ jobs:
           tag: ${{ steps.meta.outputs.tag }}
           release-notes: ${{ inputs.release_notes }}
           changelog-paths: |
-            CHANGELOG.md
-            Thaw/Resources/CHANGELOG.md
+            ${{ steps.source.outputs.source-dir }}/CHANGELOG.md
+            ${{ steps.source.outputs.source-dir }}/Thaw/Resources/CHANGELOG.md
 
       - name: Select latest installed Xcode (including betas)
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -202,6 +207,7 @@ jobs:
         env:
           TAG: ${{ steps.meta.outputs.tag }}
           DMG_NAME: ${{ env.DMG_NAME }}
+          SOURCE_DIR: ${{ steps.source.outputs.source-dir }}
           # Syft pinned by version and archive digest; bump both from the release's
           # syft_<version>_checksums.txt.
           SYFT_VERSION: 1.42.3
@@ -231,7 +237,7 @@ jobs:
           # Package.resolved lists them. Build output and CI files are excluded.
           sbom_name="Thaw_${TAG}.cdx.json"
           sbom_path="build/${sbom_name}"
-          syft scan dir:. \
+          syft scan "dir:${SOURCE_DIR}" \
             --exclude './build/**' \
             --exclude './.git/**' \
             --exclude './.github/**' \
@@ -304,7 +310,7 @@ jobs:
 
       - name: Prepare appcasts
         id: appcasts
-        uses: ./.github/actions/prepare-appcasts
+        uses: ./legacy/.github/actions/prepare-appcasts
         with:
           appcast-path: ${{ steps.sparkle.outputs.appcast-path }}
           release-tag: ${{ steps.meta.outputs.tag }}

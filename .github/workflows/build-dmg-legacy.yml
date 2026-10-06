@@ -1,4 +1,4 @@
-name: Build DMG
+name: Build DMG (Thaw 2)
 
 # Manual signed, notarized DMG as a short-lived artifact, never a release.
 
@@ -12,7 +12,7 @@ on:
         default: ""
 
 concurrency:
-  group: build-dmg-${{ inputs.ref || github.ref }}
+  group: build-dmg-legacy-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -25,18 +25,18 @@ jobs:
     runs-on: xcode-27
     env:
       APP_NAME: "Thaw.app"
-      DMG_NAME: "Thaw-dev.dmg"
+      DMG_NAME: "Thaw2-dev.dmg"
     steps:
       # A local composite action has to exist on disk before it can run, so
       # this sparse checkout brings in .github/actions and nothing else.
       - name: Checkout build actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: legacy/.github/actions
 
       - name: Checkout source
         id: source
-        uses: ./.github/actions/checkout-source
+        uses: ./legacy/.github/actions/checkout-source
         with:
           ref: ${{ inputs.ref }}
 
@@ -78,7 +78,7 @@ jobs:
       - name: Upload DMG
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Thaw-dmg-${{ steps.source.outputs.commit }}
+          name: Thaw2-dmg-${{ steps.source.outputs.commit }}
           path: build/${{ env.DMG_NAME }}
           retention-days: 3
 

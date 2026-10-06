@@ -3,7 +3,7 @@
 # in the same modules SwiftLint lints (see .swiftlint.yml).
 set -euo pipefail
 
-root="$(git rev-parse --show-toplevel)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-$root/scripts/swiftlint-inputs.xcfilelist}"
 
 cd "$root"

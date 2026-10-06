@@ -52,7 +52,8 @@ jobs:
           fi
 
           patterns='(\.swift$|(^|/)Package\.swift$|(^|/)Package\.resolved$|^sonar-project\.properties$|^\.swiftlint|^\.swiftformat|^Thaw\.xcodeproj/|^scripts/|\.xcstrings$|^\.github/workflows/ci\.yml$)'
-          if git diff --name-only "$range" | grep -E "$patterns" >/dev/null; then
+          # legacy/ is Thaw 2, checked by ci-legacy.yml.
+          if git diff --name-only "$range" | grep -v '^legacy/' | grep -E "$patterns" >/dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "Code-related paths changed."
           else

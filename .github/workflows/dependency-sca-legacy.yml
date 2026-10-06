@@ -1,6 +1,6 @@
 # OSV lockfile scan for OpenSSF OSPS-VM-05.03; fails on unsuppressed vulns. The
 # CLI is pinned by version and SHA-256; the Action image can't read Package.resolved.
-name: Dependency SCA
+name: Dependency SCA (Thaw 2)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -8,12 +8,18 @@ concurrency:
 
 on:
   pull_request:
+    paths:
+      - "legacy/**"
+      - ".github/workflows/dependency-sca-legacy.yml"
   push:
     branches:
       - development
+    paths:
+      - "legacy/**"
+      - ".github/workflows/dependency-sca-legacy.yml"
   schedule:
     # Weekly hygiene scan (offset from Scorecard / CodeQL).
-    - cron: "17 5 * * 1"
+    - cron: "27 5 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -45,9 +51,9 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          path = Path("osv-scanner.toml")
+          path = Path("legacy/osv-scanner.toml")
           if not path.is_file():
-              print("::error::osv-scanner.toml is missing")
+              print("::error::legacy/osv-scanner.toml is missing")
               sys.exit(1)
 
           data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -104,7 +110,7 @@ jobs:
       - name: Scan dependencies (OSV)
         id: scan
         env:
-          LOCKFILE: Thaw.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          LOCKFILE: legacy/Thaw.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
         run: |
           set -euo pipefail
           test -f "$LOCKFILE"
@@ -114,13 +120,13 @@ jobs:
           set +e
           osv-scanner scan source \
             --lockfile="$LOCKFILE" \
-            --config=osv-scanner.toml \
+            --config=legacy/osv-scanner.toml \
             --format=json \
             --output-file=results.json
           json_ec=$?
           osv-scanner scan source \
             --lockfile="$LOCKFILE" \
-            --config=osv-scanner.toml \
+            --config=legacy/osv-scanner.toml \
             --format=sarif \
             --output-file=results.sarif
           sarif_ec=$?
@@ -152,12 +158,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: results.sarif
-          category: dependency-sca
+          category: dependency-sca-thaw-2
 
       - name: Upload JSON results
         if: ${{ always() && !cancelled() && hashFiles('results.json') != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: osv-scanner-results
+          name: osv-scanner-results-thaw-2
           path: results.json
           retention-days: 14

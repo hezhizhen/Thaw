@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - development
+    paths-ignore:
+      - "legacy/**"
+      - ".github/workflows/*-legacy.yml"
   schedule:
     # Weekly, offset from the hour to avoid GitHub's cron pileup.
     - cron: "31 4 * * 1"

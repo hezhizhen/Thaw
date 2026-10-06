@@ -118,6 +118,11 @@ jobs:
             exit 1
           fi
 
+          if [[ "$TAG_NAME" == 2.* ]]; then
+            echo "::error::$TAG_NAME is a Thaw 2 tag; use Release (Thaw 2)."
+            exit 1
+          fi
+
           channel="$CHANNEL_INPUT"
           if [[ "$channel" == "auto" ]]; then
             shopt -s nocasematch

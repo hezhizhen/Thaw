@@ -1,4 +1,4 @@
-name: Promote
+name: Promote (Thaw 2)
 
 # Ships a release candidate as the stable release without rebuilding it. The
 # candidate must have been built with its final version (MARKETING_VERSION
@@ -62,8 +62,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: |
-            .github/actions
-            CHANGELOG.md
+            legacy/.github/actions
+            legacy/CHANGELOG.md
           sparse-checkout-cone-mode: false
 
       - name: Resolve versions
@@ -79,6 +79,10 @@ jobs:
             exit 1
           fi
           stable="${BASH_REMATCH[1]}"
+          if [[ "$stable" != 2.* ]]; then
+            echo "::error::Promote (Thaw 2) promotes 2.x candidates only, not ${TAG}"
+            exit 1
+          fi
 
           is_draft="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
           if [[ "$is_draft" != "false" ]]; then
@@ -118,10 +122,10 @@ jobs:
           stable = os.environ["STABLE"]
           notes = os.environ.get("RELEASE_NOTES_INPUT", "")
           if not notes.strip():
-              text = open("CHANGELOG.md", encoding="utf-8").read()
+              text = open("legacy/CHANGELOG.md", encoding="utf-8").read()
               match = re.search(r"^##\s+\[?" + re.escape(stable) + r"\]?.*$", text, re.MULTILINE)
               if not match:
-                  raise SystemExit(f"::error::Add a '## [{stable}]' section to CHANGELOG.md, or pass release_notes")
+                  raise SystemExit(f"::error::Add a '## [{stable}]' section to legacy/CHANGELOG.md, or pass release_notes")
               rest = text[match.end():]
               next_heading = re.search(r"^##\s+", rest, re.MULTILINE)
               notes = (rest[: next_heading.start()] if next_heading else rest).strip()
@@ -176,7 +180,7 @@ jobs:
           import zipfile
           from xml.dom import Node, minidom
 
-          sys.path.insert(0, ".github/actions/prepare-appcasts")
+          sys.path.insert(0, "legacy/.github/actions/prepare-appcasts")
           from prepare_appcasts import build_number, enclosure_tag, sparkle_elements, text, update_enclosures
 
           tag, stable = os.environ["TAG"], os.environ["STABLE"]
@@ -241,7 +245,7 @@ jobs:
 
       - name: Prepare appcasts
         id: appcasts
-        uses: ./.github/actions/prepare-appcasts
+        uses: ./legacy/.github/actions/prepare-appcasts
         with:
           appcast-path: ${{ steps.promote.outputs.appcast }}
           release-tag: ${{ steps.meta.outputs.stable }}
@@ -261,7 +265,7 @@ jobs:
           cp "$ZIP_PATH" "$stable_zip"
           if gh release view "$STABLE" --repo "$UPDATES_REPOSITORY" >/dev/null 2>&1; then
             echo "::notice::${STABLE} already exists on ${UPDATES_REPOSITORY}; completing it"
-            "$GITHUB_WORKSPACE/.github/actions/prepare-appcasts/attach_release_assets.sh" \
+            "$GITHUB_WORKSPACE/legacy/.github/actions/prepare-appcasts/attach_release_assets.sh" \
               "$UPDATES_REPOSITORY" "$STABLE" "$stable_zip"
             gh release edit "$STABLE" --repo "$UPDATES_REPOSITORY" --draft=false >/dev/null
             exit 0
@@ -308,7 +312,7 @@ jobs:
           rm -f "$assets"/*.zip "$assets"/*.delta
           if gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::notice::${STABLE} already exists; completing it"
-            "$GITHUB_WORKSPACE/.github/actions/prepare-appcasts/attach_release_assets.sh" \
+            "$GITHUB_WORKSPACE/legacy/.github/actions/prepare-appcasts/attach_release_assets.sh" \
               "$GITHUB_REPOSITORY" "$STABLE" "$assets"/*
             gh release edit "$STABLE" --repo "$GITHUB_REPOSITORY" \
               --notes-file "$NOTES_PATH" --draft=false --latest >/dev/null

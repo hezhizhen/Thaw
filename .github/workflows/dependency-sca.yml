@@ -8,9 +8,15 @@ concurrency:
 
 on:
   pull_request:
+    paths-ignore:
+      - "legacy/**"
+      - ".github/workflows/*-legacy.yml"
   push:
     branches:
       - development
+    paths-ignore:
+      - "legacy/**"
+      - ".github/workflows/*-legacy.yml"
   schedule:
     # Weekly hygiene scan (offset from Scorecard / CodeQL).
     - cron: "17 5 * * 1"
