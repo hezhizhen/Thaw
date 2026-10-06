@@ -37,4 +37,26 @@ public enum MirroredBarGeometry {
         }
         return rebasedFrame(frame, from: reportedDisplay, to: destinationDisplay)
     }
+
+    /// frame(_:on:displayBounds:), or nil when the destination bar does not draw it.
+    ///
+    /// A bar lays its status items out from the trailing edge and draws only
+    /// those that fit trailing laneMinX: its native overflow chevron's leading
+    /// edge, or the notch's trailing edge when the chevron is unknown. An item
+    /// starting before that sits in the chevron's menu, whatever frame it is
+    /// reported with, and a frame mirrored from a bar with room to spare can
+    /// land there too.
+    public static func drawnFrame(
+        _ frame: CGRect,
+        on destinationDisplay: CGRect?,
+        displayBounds: [CGRect],
+        laneMinX: CGFloat?
+    ) -> CGRect? {
+        let drawn = self.frame(frame, on: destinationDisplay, displayBounds: displayBounds)
+        guard let laneMinX, drawn.minX < laneMinX - laneTolerance else { return drawn }
+        return nil
+    }
+
+    /// Points by which a drawn item may start before laneMinX, for AX rounding.
+    static let laneTolerance: CGFloat = 1
 }

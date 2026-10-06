@@ -75,16 +75,19 @@ extension HIDEventManager {
         return region.contains(mouseLocation)
     }
 
-    /// The bounds of the display under location, and of every active display,
-    /// for rebasing the frames macOS 27 reports against one bar's layout.
+    /// The bounds of the display under location and of every active display, for rebasing the
+    /// frames macOS 27 reports against one bar's layout, and where that display's item lane starts
+    /// (see MirroredBarGeometry.drawnFrame). AX shows only the active bar's chevron, so the notch stands in.
     private static func displayContext(
         for location: CGPoint
-    ) -> (destination: CGRect?, all: [CGRect]) {
+    ) -> (destination: CGRect?, all: [CGRect], laneMinX: CGFloat?) {
         let all = NSScreen.allDisplayBoundsCG
-        guard let displayID = Self.displayID(containing: location, fallback: nil) else {
-            return (nil, all)
+        guard let screen = NSScreen.screen(containingCGPoint: location) else {
+            return (nil, all, nil)
         }
-        return (CGDisplayBounds(displayID), all)
+        let laneMinX = MenuBarItemAXProvider.nativeOverflowControlBounds(on: screen.displayID).map(\.minX).min()
+            ?? screen.frameOfNotch?.maxX
+        return (CGDisplayBounds(screen.displayID), all, laneMinX)
     }
 
     /// The fast path for hover and click hit-testing.
@@ -101,6 +104,7 @@ extension HIDEventManager {
             entries: entries,
             destinationDisplay: context.destination,
             displayBounds: context.all,
+            laneMinX: context.laneMinX,
             trustCachedBoundsWithoutLiveWindowVerification: trustCachedBounds
         )
     }
@@ -114,12 +118,12 @@ extension HIDEventManager {
         let effectivelyConcealed = controller.effectivelyConcealedIdentifiers
         let context = Self.displayContext(for: mouseLocation)
         return appState.itemManager.managedItems.contains { item in
-            let bounds = MirroredBarGeometry.frame(
+            guard let bounds = MirroredBarGeometry.drawnFrame(
                 item.bounds,
                 on: context.destination,
-                displayBounds: context.all
-            )
-            guard bounds.contains(mouseLocation) else {
+                displayBounds: context.all,
+                laneMinX: context.laneMinX
+            ), bounds.contains(mouseLocation) else {
                 return false
             }
             return Self.shouldIncludeItemInMenuBarBoundsLookup(
@@ -240,12 +244,12 @@ extension HIDEventManager {
             + appState.itemManager.managedItems
         let context = Self.displayContext(for: location)
         return candidates.contains { item in
-            let bounds = MirroredBarGeometry.frame(
+            guard let bounds = MirroredBarGeometry.drawnFrame(
                 item.bounds,
                 on: context.destination,
-                displayBounds: context.all
-            )
-            guard bounds.contains(location) else {
+                displayBounds: context.all,
+                laneMinX: context.laneMinX
+            ), bounds.contains(location) else {
                 return false
             }
             return Self.shouldIncludeItemInMenuBarBoundsLookup(

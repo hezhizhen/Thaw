@@ -26,16 +26,17 @@ extension HIDEventManager {
         entries: [(windowID: CGWindowID, bounds: CGRect)],
         destinationDisplay: CGRect?,
         displayBounds: [CGRect],
+        laneMinX: CGFloat? = nil,
         trustCachedBoundsWithoutLiveWindowVerification: Bool,
         liveWindowBounds: (CGWindowID) -> CGRect? = { Bridging.getWindowBounds(for: $0) }
     ) -> Bool {
         for entry in entries {
-            let bounds = MirroredBarGeometry.frame(
+            guard let bounds = MirroredBarGeometry.drawnFrame(
                 entry.bounds,
                 on: destinationDisplay,
-                displayBounds: displayBounds
-            )
-            guard bounds.contains(location) else { continue }
+                displayBounds: displayBounds,
+                laneMinX: laneMinX
+            ), bounds.contains(location) else { continue }
             if trustCachedBoundsWithoutLiveWindowVerification {
                 return true
             }
