@@ -6,7 +6,8 @@
 //  Licensed under the GNU GPLv3
 
 import CoreGraphics
-import MenuBarModel
+import Foundation
+@testable import MenuBarModel
 import Testing
 
 /// Accessibility exposes the native overflow chevron as a MenuBarAgent extra.
@@ -40,6 +41,26 @@ struct NativeOverflowControlTests {
         let tag = MenuBarItemTag(namespace: .menuBarAgent, title: title)
         #expect(tag.isNativeOverflowControl)
         #expect(MenuBarItemTag.isNativeOverflowControlTitle(title))
+    }
+
+    @Test("Reads the control's labels in every language of MenuBarAgent's string table")
+    func readsLocalizedLabels() throws {
+        let strings = [
+            "en": ["menuBar.showOverflowItemsAccessibilityLabel": "Show Hidden Menu Bar Items"],
+            "fr": [
+                "menuBar.showOverflowItemsAccessibilityLabel": "Afficher les éléments masqués de la barre des menus",
+                "menuBar.hideOverflowItemsAccessibilityLabel": "Masquer les éléments de la barre des menus",
+                "menuBar.clockAccessibilityLabel": "Horloge",
+            ],
+        ]
+        let table = try PropertyListSerialization.data(fromPropertyList: strings, format: .binary, options: 0)
+        #expect(MenuBarItemTag.overflowControlTitles(inStringTable: table) == [
+            "Show Hidden Menu Bar Items",
+            "Afficher les éléments masqués de la barre des menus",
+            "Masquer les éléments de la barre des menus",
+        ])
+        #expect(MenuBarItemTag.overflowControlTitles(inStringTable: nil).isEmpty)
+        #expect(MenuBarItemTag.overflowControlTitles(inStringTable: Data("not a table".utf8)).isEmpty)
     }
 
     @Test("Real MenuBarAgent extras are not the control", arguments: [

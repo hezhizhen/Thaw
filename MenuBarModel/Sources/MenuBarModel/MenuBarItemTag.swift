@@ -300,11 +300,11 @@ public struct MenuBarItemTag: Hashable, CustomStringConvertible, Sendable, Codab
     /// Some macOS 27 builds publish overflow through AXOverflowButton rather than an ordinary status item.
     public static let nativeOverflowControlAXAttributeTitle = "AXOverflowButton"
 
-    /// Localized title backstop for stale keys, fixtures, or failed AX reads; add observed locales, but never rely on titles alone.
-    /// AX normally excludes overflow by its AXOverflowButton element or matching frame.
-    static let nativeOverflowControlKnownTitles: Set<String> = [
+    /// Localized title backstop for stale keys, fixtures, or failed AX reads; never rely on titles alone.
+    /// AX normally excludes overflow by its AXOverflowButton element or matching frame. See menuBarAgentOverflowTitles.
+    static let nativeOverflowControlKnownTitles: Set<String> = menuBarAgentOverflowTitles.union([
         "Show Hidden Menu Bar Items",
-    ]
+    ])
 
     /// Whether this item's owner is in agentUngovernedOwners.
     public var isAgentUngoverned: Bool {
