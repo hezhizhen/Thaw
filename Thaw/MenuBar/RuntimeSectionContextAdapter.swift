@@ -135,15 +135,7 @@ final class RuntimeSectionContextAdapter: RuntimeSectionContext {
     }
 
     func activeMenuBarDisplayID() -> CGDirectDisplayID? {
-        // Ask the window server: AppKit is wrong with "Displays have separate
-        // Spaces" off and lags after a topology change. The bridge falls back
-        // to the main display, so an unbacked id means mid-change.
-        guard let displayID = Bridging.getActiveMenuBarDisplayID(),
-              connectedDisplayIDs().contains(displayID)
-        else {
-            return nil
-        }
-        return displayID
+        DisplayTopology.resolveActiveDisplayID()
     }
 
     func connectedDisplayIDs() -> Set<CGDirectDisplayID> {
