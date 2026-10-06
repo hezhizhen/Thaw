@@ -160,7 +160,7 @@ nonisolated enum MenuBarItemAXProvider {
                 }
                 // One message for all five attributes costs the same as the
                 // frame alone.
-                let attributes = AXHelpers.menuBarChildAttributes(for: child)
+                let attributes = AXHelpers.menuBarChildAttributes(for: child, includingRole: namespace == .menuBarAgent)
                 // Skip incidental children (open popovers / panels).
                 guard let frame = Self.itemFrame(attributes.frame, maximumHeight: itemHeightCeiling) else {
                     continue
@@ -590,7 +590,7 @@ nonisolated enum MenuBarItemAXProvider {
         let itemHeightCeiling = maxItemHeight(menuBarHeight: NSScreen.tallestCachedMenuBarHeight)
 
         for (childIndex, child) in children.enumerated() {
-            let attributes = AXHelpers.menuBarChildAttributes(for: child)
+            let attributes = AXHelpers.menuBarChildAttributes(for: child, includingRole: namespace == .menuBarAgent)
             let diagnosticIdentity = attributes.identifier?.nonEmpty
                 ?? attributes.accessibilityDescription?.nonEmpty
                 ?? "child-\(childIndex)"

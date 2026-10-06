@@ -58,9 +58,11 @@ nonisolated enum AXHelpers {
         var children: [UIElement] = []
     }
 
-    static func menuBarChildAttributes(for element: UIElement) -> MenuBarChildAttributes {
-        let values = element.attributeValues([
-            .role, .frame, .identifier, .title, .description, .children,
+    /// Pass includingRole only for MenuBarAgent's bar. The walks also read Thaw's own bar off the
+    /// main thread, where AppKit answers in-process and is not thread-safe, so that read stays minimal.
+    static func menuBarChildAttributes(for element: UIElement, includingRole: Bool = false) -> MenuBarChildAttributes {
+        let values = element.attributeValues((includingRole ? [.role] : []) + [
+            .frame, .identifier, .title, .description, .children,
         ])
         return MenuBarChildAttributes(
             role: values[.role] as? String,
