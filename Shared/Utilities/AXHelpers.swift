@@ -60,9 +60,10 @@ nonisolated enum AXHelpers {
 
     static func menuBarChildAttributes(for element: UIElement) -> MenuBarChildAttributes {
         let values = element.attributeValues([
-            .frame, .identifier, .title, .description, .children,
+            .role, .frame, .identifier, .title, .description, .children,
         ])
         return MenuBarChildAttributes(
+            role: values[.role] as? String,
             frame: values[.frame] as? CGRect,
             identifier: values[.identifier] as? String,
             title: values[.title] as? String,
@@ -121,6 +122,12 @@ nonisolated enum AXHelpers {
     /// an attribute rather than as an ordinary child.
     static func overflowButton(for element: UIElement) -> UIElement? {
         try? element.attribute(.overflowButton)
+    }
+
+    /// The children of MenuBarAgent's extras bar that are its overflow
+    /// chevron by role. See AXPrimitives.isMenuBarAgentOverflowRole(_:).
+    static func overflowButtons(among children: [UIElement]) -> [UIElement] {
+        children.filter { AXPrimitives.isMenuBarAgentOverflowRole(roleString(for: $0)) }
     }
 
     /// Whether the element advertises AXOverflowButton, or nil when its
