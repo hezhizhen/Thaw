@@ -178,7 +178,6 @@ struct FoldedMenuBar: View {
             for: items,
             appState: appState,
             imageCache: appState.imageCache,
-            displayID: itemManager.itemDisplayID ?? CGMainDisplayID(),
             section: { _ in .hidden }
         )
         return HStack(spacing: 0) {

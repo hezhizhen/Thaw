@@ -184,7 +184,6 @@ struct ThawBarContentView: View {
             for: items,
             appState: appState,
             imageCache: imageCache,
-            displayID: screen.displayID,
             visibleControlItemState: visibleControlItemState,
             section: { _ in section }
         )

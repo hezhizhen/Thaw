@@ -122,8 +122,7 @@ enum OverflowFallbackIcon {
         for item: MenuBarItem,
         in section: MenuBarSection.Name?,
         appState: AppState,
-        hasUsableCapture: Bool,
-        isNativeOverflowActive: Bool = false
+        hasUsableCapture: Bool
     ) -> Bool {
         guard supportsMissingCaptureFallback(for: section) else { return false }
         // Apple hosts contain distinct modules, including Siri; their process icon cannot replace each glyph.
@@ -132,11 +131,8 @@ enum OverflowFallbackIcon {
         if appState.itemManager.isThawBarOnly(item) {
             return appIcon(for: item) != nil || image(for: item) != nil
         }
-        // Native overflow can keep revealed items off the first row, causing chevron captures.
-        // Ignore even populated entries that may contain stale arrow crops.
-        if isNativeOverflowActive {
-            return true
-        }
+        // Native overflow needs no case: captures that meet its chevron are refused, and concealed
+        // items are not revealed for one on an overflowed bar.
         // The app-icon override lets users avoid native-overflow capture bleed even with populated captures.
         if appState.settings.alwaysUseAppIconForMenuBarItems {
             // Without a live app icon, preserve missing-capture behavior rather than replacing a quit app with a placeholder.
@@ -173,15 +169,13 @@ enum OverflowFallbackIcon {
         section: MenuBarSection.Name?,
         appState: AppState,
         capturedImage: MenuBarItemGlyphCapture?,
-        visibleControlItemState: ControlItem.HidingState? = nil,
-        isNativeOverflowActive: Bool = false
+        visibleControlItemState: ControlItem.HidingState? = nil
     ) -> MenuBarItemDisplayImage? {
         if shouldPreferAppIcon(
             for: item,
             in: section,
             appState: appState,
-            hasUsableCapture: isUsableCapture(capturedImage, for: item),
-            isNativeOverflowActive: isNativeOverflowActive
+            hasUsableCapture: isUsableCapture(capturedImage, for: item)
         ) {
             return preferredImage(
                 for: item,
@@ -200,27 +194,23 @@ enum OverflowFallbackIcon {
         ).map { .appIcon($0) }
     }
 
-    /// Share one native-overflow probe and image pass between layout measurement and rendering.
+    /// Share one image pass between layout measurement and rendering.
     /// section lets single-section bars return a constant and mixed-section overlays look up each item.
     @MainActor
     static func resolvedImages(
         for items: [MenuBarItem],
         appState: AppState,
         imageCache: MenuBarItemImageCache,
-        displayID: CGDirectDisplayID,
         visibleControlItemState: ControlItem.HidingState? = nil,
         section: (MenuBarItem) -> MenuBarSection.Name?
     ) -> [MenuBarItemTag: MenuBarItemDisplayImage] {
-        let isNativeOverflowActive = appState.menuBarManager.sectionController
-            .isNativeOverflowActive(on: displayID)
-        return items.reduce(into: [MenuBarItemTag: MenuBarItemDisplayImage]()) { result, item in
+        items.reduce(into: [MenuBarItemTag: MenuBarItemDisplayImage]()) { result, item in
             result[item.tag] = resolvedImage(
                 for: item,
                 section: section(item),
                 appState: appState,
                 capturedImage: imageCache.image(for: item.tag),
-                visibleControlItemState: visibleControlItemState,
-                isNativeOverflowActive: isNativeOverflowActive
+                visibleControlItemState: visibleControlItemState
             )
         }
     }
