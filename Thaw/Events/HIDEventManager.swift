@@ -1483,18 +1483,18 @@ extension HIDEventManager {
 
     // MARK: Handle Show On Scroll
 
+    /// Visibility changes requested by a menu bar scroll gesture.
     nonisolated enum ScrollAction: Equatable {
         case show
         case hide
     }
 
-    /// Revealing needs empty space or the Thaw icon. Hiding must still work
-    /// after the revealed items occupy that space.
+    /// Selects visibility from the scroll direction without an empty-space
+    /// requirement. Deltas at or within the thresholds leave visibility unchanged.
     static nonisolated func scrollAction(
-        averageDelta: CGFloat,
-        isInRevealArea: Bool
+        averageDelta: CGFloat
     ) -> ScrollAction? {
-        if averageDelta > 5, isInRevealArea {
+        if averageDelta > 5 {
             return .show
         }
         if averageDelta < -5 {
@@ -1503,6 +1503,8 @@ extension HIDEventManager {
         return nil
     }
 
+    /// Shows or hides the hidden section for scrolls in the menu bar,
+    /// excluding the notch and foreign widget controls.
     private func handleShowOnScroll(
         with event: NSEvent,
         appState: AppState,
@@ -1520,19 +1522,9 @@ extension HIDEventManager {
             return
         }
 
-        // `isMouseInsideEmptyMenuBarSpace` excludes the Thaw icon, but
-        // scrolling on the icon must reveal too. (#1073)
-        let overEmptyMenuBarSpace = isMouseInsideEmptyMenuBarSpace(
-            appState: appState,
-            screen: screen
-        )
-        let overThawIcon = isMouseInsideIceIcon(appState: appState)
         let averageDelta = (event.scrollingDeltaX + event.scrollingDeltaY) / 2
 
-        switch Self.scrollAction(
-            averageDelta: averageDelta,
-            isInRevealArea: overEmptyMenuBarSpace || overThawIcon
-        ) {
+        switch Self.scrollAction(averageDelta: averageDelta) {
         case .show:
             hiddenSection.show()
         case .hide:
