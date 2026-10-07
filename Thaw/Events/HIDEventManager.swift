@@ -1483,21 +1483,35 @@ extension HIDEventManager {
 
     // MARK: Handle Show On Scroll
 
+    nonisolated enum ScrollAction: Equatable {
+        case show
+        case hide
+    }
+
+    /// Revealing needs empty space or the Thaw icon. Hiding must still work
+    /// after the revealed items occupy that space.
+    static nonisolated func scrollAction(
+        averageDelta: CGFloat,
+        isInRevealArea: Bool
+    ) -> ScrollAction? {
+        if averageDelta > 5, isInRevealArea {
+            return .show
+        }
+        if averageDelta < -5 {
+            return .hide
+        }
+        return nil
+    }
+
     private func handleShowOnScroll(
         with event: NSEvent,
         appState: AppState,
         screen: NSScreen
     ) {
-        // `isMouseInsideEmptyMenuBarSpace` excludes the Thaw icon, but
-        // scrolling on the icon must reveal too. (#1073)
-        let overEmptyMenuBarSpace = isMouseInsideEmptyMenuBarSpace(
-            appState: appState,
-            screen: screen
-        )
-        let overThawIcon = isMouseInsideIceIcon(appState: appState)
         guard
             appState.settings.general.showOnScroll,
-            overEmptyMenuBarSpace || overThawIcon,
+            isMouseInsideMenuBar(appState: appState, screen: screen),
+            !isMouseInsideNotch(appState: appState, screen: screen),
             !isCursorOverForeignWidgetUIElement(),
             let hiddenSection = appState.menuBarManager.section(
                 withName: .hidden
@@ -1506,12 +1520,25 @@ extension HIDEventManager {
             return
         }
 
+        // `isMouseInsideEmptyMenuBarSpace` excludes the Thaw icon, but
+        // scrolling on the icon must reveal too. (#1073)
+        let overEmptyMenuBarSpace = isMouseInsideEmptyMenuBarSpace(
+            appState: appState,
+            screen: screen
+        )
+        let overThawIcon = isMouseInsideIceIcon(appState: appState)
         let averageDelta = (event.scrollingDeltaX + event.scrollingDeltaY) / 2
 
-        if averageDelta > 5 {
+        switch Self.scrollAction(
+            averageDelta: averageDelta,
+            isInRevealArea: overEmptyMenuBarSpace || overThawIcon
+        ) {
+        case .show:
             hiddenSection.show()
-        } else if averageDelta < -5 {
+        case .hide:
             hiddenSection.hide()
+        case nil:
+            break
         }
     }
 }
