@@ -271,11 +271,8 @@ extension Defaults {
         /// Minimum seconds between two alert reveals of the same item.
         static let menuBarItemAlertRevealCooldown: TimeInterval = 45
         static let autoZenWhileSharingScreen = false
-        #if DEBUG
-            static let enableDiagnosticLogging = true
-        #else
-            static let enableDiagnosticLogging = false
-        #endif
+        // Diagnostic build: logging is on unless the user saved a choice.
+        static let enableDiagnosticLogging = true
         static let enableMenuBarItemOverflow = false
         static let enableExperimentalSystemItemHiding = false
         static let menuBarArrangementMode = MenuBarArrangementMode.automatic
